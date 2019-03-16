@@ -1,23 +1,27 @@
 # PyOpenGLRenderer
 
-Depedencies:
-  PyOpenGL
-  glfw
-  Cython
-  numpy
-  scipy
-  tqdm
-  
-  
-Steps
-	1. Setup Shader paths
-	2. Setup model paths
-	3. Setup window
-	4. Create Light/Camera/Renderer
-	5. Setup Light Attribute(& pose)/Model Attribute(& pose)
-	6. Draw and Update
+<b>Depedencies:</b>
+<ul>
+<li>PyOpenGL</li>
+<li>glfw</li>
+<li>Cython</li>
+<li>numpy</li>
+<li>scipy</li>
+<li>tqdm</li>
+</ul>	
+<br />
 
-  
-Run the script "rendererTest.py" to test renderer
-Run the script "generate_Synthetic_V2.py" to generate  
+<b>Steps:</b>
+<ol>
+<li>Setup Shader paths</li>
+<li>Setup model paths</li>
+<li>Setup window</li>
+<li>Create Light/Camera/Renderer</li>
+<li>Setup Light Attribute(& pose)/Model Attribute(& pose)</li>
+<li>Draw and Update</li>
+</ol>
+ 
+<br />
+Run the script "rendererTest.py" to test renderer.<br />
+Run the script "generate_Synthetic_V2.py" to generate training data with groundtruths in .json format<br />
 
