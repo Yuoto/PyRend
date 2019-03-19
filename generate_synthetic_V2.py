@@ -116,8 +116,6 @@ def main():
         for i in tqdm(range(SAMPLE_QUANTITY - preload_count)):
 
             idx = i + preload_count
-            # inputs
-            #mwindow.processInput(mcam1)
             mwindow.clearWindow((0.,0.,0.))
 
             #set light properties

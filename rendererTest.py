@@ -47,7 +47,7 @@ def main():
     #modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
 
-    #training data info
+
 
     # Window
     SCR_WIDTH = 960
@@ -69,6 +69,7 @@ def main():
 
     while not glfw.window_should_close(mwindow.window):
         # inputs
+        mwindow.processInput()
         mwindow.clearWindow((0., 0., 0.))
         curT = glfw.get_time()
         # set light properties

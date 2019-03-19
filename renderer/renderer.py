@@ -1,5 +1,3 @@
-
-
 import sys,os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import glfw
@@ -9,10 +7,9 @@ import numpy as np
 import math
 from shader import Shader
 from modelc import Model
-from camera.camera import Camera, direction
+from camera.camera import Camera
 from utiles.transform import toExtMat
 from scipy.misc import imread,imsave
-import glm
 
 
 
@@ -88,9 +85,8 @@ class Light:
 
 
 class Window:
-    def __init__(self, windowSize, windowName, enableUI = False):
+    def __init__(self, windowSize, windowName):
         self.window = self.__setUpWindow(windowSize, windowName)
-        self.enableUI = enableUI
     def __setUpWindow(self,windowSize,name):
         # -------- setting window
         init_glfw()
@@ -100,22 +96,13 @@ class Window:
             return
         glfw.make_context_current(window)
 
-
         return window
 
-    def processInput(self,cam,deltaT=0.1):
+    def processInput(self):
         if glfw.get_key(self.window, glfw.KEY_ESCAPE) is glfw.PRESS:
             glfw.set_window_should_close(self.window, True)
 
-        if self.enableUI:
-            if glfw.get_key(self.window, glfw.KEY_W) == glfw.PRESS:
-                cam.ProcessKeyBoard(direction.FORWARD, deltaT)
-            if glfw.get_key(self.window, glfw.KEY_S) == glfw.PRESS:
-                cam.ProcessKeyBoard(direction.BACKWARD, deltaT)
-            if glfw.get_key(self.window, glfw.KEY_A) == glfw.PRESS:
-                cam.ProcessKeyBoard(direction.LEFT, deltaT)
-            if glfw.get_key(self.window, glfw.KEY_D) == glfw.PRESS:
-                cam.ProcessKeyBoard(direction.RIGHT, deltaT)
+
 
     def clearWindow(self, color, alpha=1):
         glClearColor(color[0], color[1], color[2], alpha)
@@ -320,92 +307,13 @@ class Renderer:
 
 
 
-
-
-def main():
-
-    mwindow = Window((SCR_WIDTH,SCR_HEIGHT),'Renderer Test')
-
-    # callback for window resize
-    glfw.set_framebuffer_size_callback(mwindow.window, framebuffer_size_callback)
-
-    if ENABLE_UI:
-        glfw.set_cursor_pos_callback(mwindow.window,mouse_callback)
-        glfw.set_input_mode(mwindow.window, glfw.CURSOR, glfw.CURSOR_DISABLED)
-
-    #Light info
-    mlight1 = Light()
-    mrenderer = Renderer(mlight1,mcam1,modelPath,vShaderPath,fShaderPath,vShaderLampPath,fShaderLampPath)
-
-
-    while not glfw.window_should_close(mwindow.window):
-
-        curT = glfw.get_time()
-        # inputs
-        mwindow.processInput(mcam1)
-        mwindow.clearWindow((0.1,0.1,0.1))
-
-        #set light properties
-        depth = 1.5*math.cos(glm.radians(curT*10))-3
-        lightPos = np.array([1.5*math.cos(math.radians(curT*100)),-1,depth+1.5*math.sin(math.radians(curT*100))])
-        mlight1.setAttenuation(False)
-        mlight1.setDirectional(True)
-        mlight1.setPos(lightPos)
-
-        # set model pose & draw
-        ceta = math.radians(curT*50)
-        lightRot = np.array([0,0,0])
-        modelRot = np.array([0,ceta,0])
-        lightTrans = lightPos
-        modelTrans = np.array([0,-1,depth])
-
-
-
-        modelScale = 0.1
-        modelMat =  np.diag(3*[modelScale]+[1.])
-        #CameraExtrinsic = mcam1.GetCameraViewMatrix()
-        LightExt = toMat(lightRot,lightTrans)
-        ModelExt = toMat(modelRot,modelTrans)
-
-        #mrenderer.setUptLight(mlight1)
-        mrenderer.setModelMaterial(mlight1,ambient=0.8,diffuse=0.8,specular= 0.8,shininess=1.0)
-        mrenderer.draw(modelMat,ModelExt,LightExt,drawLamp=True)
-
-
-
-        mwindow.updateWindow()
-
-        '''
-        im = mwindow.screenShot()
-        imsave('test.png',im)
-        '''
-    glfw.terminate()
-
-    return
-
-
  # callback for window resize
 def framebuffer_size_callback(window,width, height):
     # create viewport
     glViewport(0,0,width,height)
 
-def mouse_callback(window, xpos, ypos):
-
-    global lastX, lastY,mcam1
-
-    xoffset = xpos - lastX
-    yoffset = lastY - ypos
-    lastX = xpos
-    lastY = ypos
-    mcam1.ProcessMouseMovement(xoffset,yoffset)
-
-def scroll_callback(window,xpos,ypos):
-    mcam1.ProcessMouseScroll(ypos)
 
 
-if __name__ == '__main__':
-
-    main()
 
 
 
