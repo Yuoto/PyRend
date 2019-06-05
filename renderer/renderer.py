@@ -31,29 +31,22 @@ float_size = sizeof(c_float)
 
 
 
-#attribs_box = ['vertex','normal','tex']
-#locations_box = dict((k, v) for (v, k) in enumerate(attribs_box))
-
-
-vShaderPath = '/home/yuoto/practice/OpenGL_Practice/renderer/shader/rendererShader.vs'
-fShaderPath = '/home/yuoto/practice/OpenGL_Practice/renderer/shader/rendererShader.fs'
-vShaderLampPath =  '/home/yuoto/practice/OpenGL_Practice/renderer/shader/lamp.vs'
-fShaderLampPath =  '/home/yuoto/practice/OpenGL_Practice/renderer/shader/lamp.fs'
-modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
-#modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
-
-SCR_WIDTH = 960
-SCR_HEIGHT = 540
-
-
-#For UI
-lastX = SCR_WIDTH/2
-lastY = SCR_HEIGHT/2
 
 
 class Light:
     def __init__(self, lightPos=[0,0,3.0], lightColor=[1.0,1.0,1.0], lightConstant=1, lightLinear=0.0014, lightQuadratic=0.000007, Directional=True, Attenuation = True):
+        '''
 
+        :param lightPos: translation
+        :param lightColor: [r,g,b] color of the light
+
+        credit to: https://learnopengl.com/Lighting/Materials
+        :param lightConstant:
+        :param lightLinear:
+        :param lightQuadratic:
+        :param Directional:
+        :param Attenuation:
+        '''
         self.lightPos = lightPos
         self.lightColor = lightColor
         self.lightConstant = lightConstant
@@ -86,9 +79,11 @@ class Light:
 
 class Window:
     def __init__(self, windowSize, windowName):
-        self.window = self.__setUpWindow(windowSize, windowName)
+        self.windowSize = windowSize
+        self.window = self.__setUpWindow(self.windowSize, windowName)
     def __setUpWindow(self,windowSize,name):
         # -------- setting window
+
         init_glfw()
         window = glfw.create_window(windowSize[0], windowSize[1], name, None, None)
         if not window:
@@ -98,15 +93,16 @@ class Window:
 
         return window
 
+
     def processInput(self):
         if glfw.get_key(self.window, glfw.KEY_ESCAPE) is glfw.PRESS:
             glfw.set_window_should_close(self.window, True)
 
 
-
     def clearWindow(self, color, alpha=1):
         glClearColor(color[0], color[1], color[2], alpha)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
 
     def updateWindow(self):
         # swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -114,16 +110,17 @@ class Window:
         glfw.poll_events()
 
     def screenShot(self):
-        imageBuf = glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE)
+        imageBuf = glReadPixels(0, 0, self.windowSize[0], self.windowSize[1], GL_RGB, GL_UNSIGNED_BYTE)
         im = np.fromstring(imageBuf, np.uint8)
-        image = np.reshape(im,(SCR_HEIGHT, SCR_WIDTH, 3))
+        image = np.reshape(im,(self.windowSize[1], self.windowSize[0], 3))
         return np.flipud(image)
 
 
 class Renderer:
-    def __init__(self,light,camera, modelPath, vShaderPath,fShaderPath,vShaderLampPath,fShaderLampPath,vShaderTightBoxPath,fShaderTightBoxPath):
+    def __init__(self,light,camera,window, modelPath, vShaderPath,fShaderPath,vShaderLampPath,fShaderLampPath,vShaderTightBoxPath,fShaderTightBoxPath):
 
         self.camera = camera
+        self.window = window
         self.__modelShader = Shader(vShaderPath,fShaderPath)
         self.__lampShader = Shader(vShaderLampPath, fShaderLampPath)
         self.__tightBoxShader = Shader(vShaderTightBoxPath, fShaderTightBoxPath)
@@ -234,6 +231,7 @@ class Renderer:
         return vbo_lamp, vao_lamp
 
     def get3DTightBox(self):
+        # Note that the positive X axis of OpenGL is different from that of OpenCV
         _3DBox = np.zeros([8, 3], dtype=np.float32)
         _3DBox[0] = [self.__3dModel.Xmin,self.__3dModel.Ymin,self.__3dModel.Zmin]
         _3DBox[1] =  [self.__3dModel.Xmin,self.__3dModel.Ymin,self.__3dModel.Zmax]
@@ -272,34 +270,79 @@ class Renderer:
         self.__modelShader.setMat4('intrinsic', self.camera.OpenGLperspective)
         self.__modelShader.setMat4('extrinsic', extrinsicMat)
         self.__modelShader.setMat4('model', modelMat)
-    
+
     def __drawLamp(self, extrinsicMat):
         self.__lampShader.use()
         self.__lampShader.setMat4('intrinsic', self.camera.OpenGLperspective)
         self.__lampShader.setMat4('extrinsic', extrinsicMat)
         model = np.eye(4)
         self.__lampShader.setMat4('model', model)
-    
+
         glBindVertexArray(self.__vaoLamp)
         glDrawArrays(GL_TRIANGLES, 0, 36)
 
-    def draw(self, model, modelExtrinsic,lightExtrinsic,drawLamp=True):
+    def __nonLinearDepth2Linear(self,depth):
+        f = self.camera.far
+        n = self.camera.near
+        ndc_depth = 2*depth-1
+
+        return ((2.0 * n * f) / (f + n - ndc_depth * (f - n))* 1000).astype(np.uint16)
+
+
+
+    def draw(self, model, modelExtrinsic,lightExtrinsic,drawLamp=True, drawBox=False, color=[255,255,255], linearDepth=False):
+        """
+
+        :param model: model matrix (model space transformation matrix)
+        :param modelExtrinsic: Extrinsic matrix of the model
+        :param lightExtrinsic: Extrinsic matrix of the light source
+        :param drawLamp: enable lamp drawing
+        :param drawBox: enable box drawing
+        :param color: color of the box
+        :param linearDepth: enable linear depth
+        :return: rgb, depth
+        """
+
         self.__setModelPose(model,modelExtrinsic)
         self.__3dModel.draw(self.__modelShader)
         if drawLamp:
             self.__drawLamp(lightExtrinsic)
 
-    def drawBox(self,model,modelExtrinsic,color):
+        if drawBox:
+            self.__drawBox(model, modelExtrinsic, color)
+
+        self.window.updateWindow()
+
+
+        depth = glReadPixels(0, 0, self.window.windowSize[0], self.window.windowSize[1], GL_DEPTH_COMPONENT, GL_FLOAT)
+        depth = np.flipud(depth.reshape(self.window.windowSize[::-1]))
+
+
+        imageBuf = glReadPixels(0, 0, self.window.windowSize[0], self.window.windowSize[1], GL_RGB, GL_UNSIGNED_BYTE)
+        im = np.fromstring(imageBuf, np.uint8)
+        rgb = np.flipud(np.reshape(im, (self.window.windowSize[1], self.window.windowSize[0], 3)))
+        mask = (rgb[:, :, 0] != 0) | (rgb[:, :, 1] != 0) | (rgb[:, :, 2] != 0)
+        if linearDepth:
+            depth = mask*self.__nonLinearDepth2Linear(depth)
+        else:
+            depth = mask*depth
+
+        return rgb,depth
+
+
+
+    def __drawBox(self,model,modelExtrinsic,color):
         self.__tightBoxShader.use()
         self.__tightBoxShader.setMat4('intrinsic', self.camera.OpenGLperspective)
         self.__tightBoxShader.setMat4('extrinsic', modelExtrinsic)
         self.__tightBoxShader.setMat4('model', model)
-        self.__tightBoxShader.setVec3('color',color)
+        self.__tightBoxShader.setVec3('color', color)
 
         glBindVertexArray(self.__vaoTightBox)
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-        glDrawArrays( GL_LINES, 0, 24)
+        glDrawArrays(GL_LINES, 0, 24)
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+
 
     def __del__(self):
         glDeleteVertexArrays(1, [self.__vaoLamp])
