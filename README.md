@@ -18,7 +18,7 @@
 <li>Setup window</li>
 <li>Create Light/Camera/Renderer</li>
 <li>Setup Light Attribute(& pose)/Model Attribute(& pose)</li>
-<li>Draw and Update</li>
+<li>Draw</li>
 </ol>
  
 <br />

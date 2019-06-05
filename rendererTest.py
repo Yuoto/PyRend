@@ -1,16 +1,14 @@
-import matplotlib.pyplot as plt
+import time
+import ctypes
 import sys,os
 sys.path.append(os.path.dirname(__file__))
 from renderer.renderer import Light,Window,Renderer
 from camera.camera import Camera
 from utiles.transform import toExtMat, SO3toSE3
-from utiles.inout import  saveJson, loadJson
-from utiles.dataSetUitles import computeBoundingBox, crop
 import glfw
 import math,random
 import numpy as np
 from scipy.misc import imread,imsave
-#from tqdm import tqdm
 
 
 
@@ -33,17 +31,17 @@ def getRandomPose(elevationRange,azimuthRange,inplaneRange):
 def main():
 
     # Shader info
-    vShaderPath = '/home/yuoto/AR/tracking/algorithms/ECCV2019Tracking/renderer/shader/rendererShader.vs'
-    fShaderPath = '/home/yuoto/AR/tracking/algorithms/ECCV2019Tracking/renderer/shader/rendererShader.fs'
-    vShaderLampPath = '/home/yuoto/AR/tracking/algorithms/ECCV2019Tracking/renderer/shader/lamp.vs'
-    fShaderLampPath = '/home/yuoto/AR/tracking/algorithms/ECCV2019Tracking/renderer/shader/lamp.fs'
-    vShaderTightBoxPath ='/home/yuoto/AR/tracking/algorithms/ECCV2019Tracking/renderer/shader/TightBox.vs'
-    fShaderTightBoxPath = '/home/yuoto/AR/tracking/algorithms/ECCV2019Tracking/renderer/shader/TightBox.fs'
+    vShaderPath = '/home/yuoto/AR/Renderer/renderer/shader/rendererShader.vs'
+    fShaderPath = '/home/yuoto/AR/Renderer/renderer/shader/rendererShader.fs'
+    vShaderLampPath = '/home/yuoto/AR/Renderer/renderer/shader/lamp.vs'
+    fShaderLampPath = '/home/yuoto/AR/Renderer/renderer/shader/lamp.fs'
+    vShaderTightBoxPath ='/home/yuoto/AR/Renderer/renderer/shader/TightBox.vs'
+    fShaderTightBoxPath = '/home/yuoto/AR/Renderer/renderer/shader/TightBox.fs'
 
     # Model info
-    modelPath = '/home/yuoto/AR/estimation/models/obj_02.ply'
+    #modelPath = '/home/yuoto/AR/estimation/models/obj_02.ply'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
-    #modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
+    modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
 
@@ -63,15 +61,17 @@ def main():
     center = (479.75, 269.75)
     mcam1 = Camera([SCR_WIDTH,SCR_HEIGHT],focal, center)
 
-    depth = -3
-    mrenderer = Renderer(mlight1, mcam1, modelPath, vShaderPath, fShaderPath, vShaderLampPath, fShaderLampPath,vShaderTightBoxPath,fShaderTightBoxPath)
+    depth = -1
+    mrenderer = Renderer(mlight1, mcam1,mwindow, modelPath, vShaderPath, fShaderPath, vShaderLampPath, fShaderLampPath,vShaderTightBoxPath,fShaderTightBoxPath)
 
 
     while not glfw.window_should_close(mwindow.window):
+    #for i in range(5):
         # inputs
         mwindow.processInput()
+
         mwindow.clearWindow((0., 0., 0.))
-        curT = glfw.get_time()
+        curT = time.time()
         # set light properties
 
         ceta = math.radians(curT * 50)
@@ -90,21 +90,20 @@ def main():
         modelTrans = np.array([0, 0, depth])
 
         # Dataset 3D model scale (m)
-        modelScale = 0.01
+        modelScale = 0.03
         modelMat = np.diag(3 * [modelScale] + [1.])
         LightExt = toExtMat(lightRot, lightTrans, PoseParameterModel='Eulerzyx', radians=True)
 
         ModelExt = toExtMat(modelRot, modelTrans, PoseParameterModel='Eulerzyx', radians=True)
 
         mrenderer.setModelMaterial(mlight1, ambient=0.5, diffuse=0.5, specular=0.5, shininess=1.0)
-        mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=True)
-        mwindow.updateWindow()
+        rgb,im_depth = mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=True, linearDepth=False)
 
-        #im = mwindow.screenShot()
-        #imsave('report/dragon/' + str(i) + '.png', im)
+
+        #imsave(str(i) + '.png', im_depth)
 
     glfw.terminate()
-
+    
     return
 
 
