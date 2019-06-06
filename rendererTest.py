@@ -40,13 +40,13 @@ def main():
 
     # Model info
     #modelPath = '/home/yuoto/AR/estimation/models/obj_02.ply'
-    modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
+    #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
     #modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
 
     #=== If used ShapeNet model, put .mtl and texture file (.jpg) in the same directory that contains .obj file
-    #modelPath = '/home/yuoto/AR/Renderer/3dmodel/1a6a67905880e4911a4d5e0a785b0e03.obj'
+    modelPath = '/home/yuoto/AR/Renderer/3dmodel/1a6a67905880e4911a4d5e0a785b0e03.obj'
 
 
 
@@ -89,15 +89,15 @@ def main():
         # set model pose & draw
         lightRot = np.array([0, 0, 0])
         lightTrans = lightPos
-        modelRot = np.array([0, ceta, math.radians(90)])
+        modelRot = np.array([0, ceta, 0])
         modelTrans = np.array([0, 0, depth])
 
         # Dataset 3D model scale (m)
-        modelScale = 1
+        modelScale = 0.01
         modelMat = np.diag(3 * [modelScale] + [1.])
-        LightExt = toExtMat(lightRot, lightTrans, PoseParameterModel='Eulerzyx', radians=True)
+        LightExt = toExtMat(lightRot, lightTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
-        ModelExt = toExtMat(modelRot, modelTrans, PoseParameterModel='Eulerzyx', radians=True)
+        ModelExt = toExtMat(modelRot, modelTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
         mrenderer.setModelMaterial(mlight1, ambient=0.5, diffuse=0.5, specular=0.5, shininess=1.0)
         rgb,im_depth = mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=True, drawBox=True, linearDepth=False)
