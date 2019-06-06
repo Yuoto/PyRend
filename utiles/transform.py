@@ -5,17 +5,17 @@ from enum import Enum
 
 
 
-def toExtMat(rotation,translation=None, PoseParameterModel='Eulerzyx',radians=True):
+def toExtMat(rotation,translation=None, PoseParameterModel='Eulerzyx',isRadian=True):
     '''
 
     :param rotation: 3 rotation parameters in Euler angle (elevataion(x), azimuth(y), in-plane(z))
     :param translation: 3 translation parameters (x,y,z)
     :param PoseParameterModel:
-    :param radians:
+    :param isRadian:
     :return:
     '''
 
-    if not radians:
+    if not isRadian:
         x = math.radians(rotation[0])
         y = math.radians(rotation[1])
         z = math.radians(rotation[2])
@@ -78,12 +78,12 @@ def SO3toSE3(rot, trans):
     return ext
 
 
-def toParameters(Ext, PoseParameterModel='Eulerzyx', toRadians=False):
+def toParameters(Ext, PoseParameterModel='Eulerzyx', toRadian=False):
     '''
 
     :param Ext: SE3 extrinsic matrix
     :param PoseParameterModel: factor as a specific Euler form
-    :param toRadians:
+    :param toRadian:
     :return: rotation, translation parameters
     '''
     translation = Ext[0:3, 3]
@@ -104,7 +104,7 @@ def toParameters(Ext, PoseParameterModel='Eulerzyx', toRadians=False):
             thetaX = math.atan2(Ext[1][0], Ext[1][1])
             thetaZ = 0
 
-    if not toRadians:
+    if not toRadian:
         thetaX = math.degrees(thetaX)
         thetaY = math.degrees(thetaY)
         thetaZ = math.degrees(thetaZ)

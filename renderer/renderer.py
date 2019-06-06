@@ -6,7 +6,7 @@ from ctypes import  sizeof, c_void_p,c_float
 import numpy as np
 import math
 from shader import Shader
-from modelc import Model
+from _model import Model
 from camera.camera import Camera
 from utiles.transform import toExtMat
 from scipy.misc import imread,imsave

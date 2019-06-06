@@ -160,6 +160,7 @@ class Model:
         spec_path = ''
         bmp_path = ''
         png_path = ''
+        jpg_path = ''
         for key, value in mat.properties.items():
             if key == 'file':
                 if value.find('_ddn') > 0:
@@ -172,8 +173,10 @@ class Model:
                     bmp_path = value
                 elif value.find('.png') > 0:
                     png_path = value
+                elif value.find('.jpg') > 0:
+                    jpg_path = value
 
-        paths = {'diffusion':diff_path,'normal':normal_path,'specular':spec_path, 'bmp_path':bmp_path, 'png_path':png_path}
+        paths = {'diffusion':diff_path,'normal':normal_path,'specular':spec_path, 'bmp_path':bmp_path, 'png_path':png_path, 'jpg_path':jpg_path}
 
         for key,mapPath in paths.items():
             if mapPath is not '':
