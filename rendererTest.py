@@ -30,7 +30,7 @@ def getRandomPose(elevationRange,azimuthRange,inplaneRange):
 
 def main():
 
-    # Shader info
+    # Shader info (Use absolute path)
     vShaderPath = '/home/yuoto/AR/Renderer/renderer/shader/rendererShader.vs'
     fShaderPath = '/home/yuoto/AR/Renderer/renderer/shader/rendererShader.fs'
     vShaderLampPath = '/home/yuoto/AR/Renderer/renderer/shader/lamp.vs'
@@ -40,13 +40,13 @@ def main():
 
     # Model info
     #modelPath = '/home/yuoto/AR/estimation/models/obj_02.ply'
-    #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
+    modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
     #modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
 
     #=== If used ShapeNet model, put .mtl and texture file (.jpg) in the same directory that contains .obj file
-    modelPath = '/home/yuoto/AR/Renderer/3dmodel/1a6a67905880e4911a4d5e0a785b0e03.obj'
+    modelPath = '/home/yuoto/AR/Renderer/3dmodel/1a622b84abb294515dbd53c7c10cfe76.obj'
 
 
 
@@ -69,41 +69,46 @@ def main():
 
 
     while not glfw.window_should_close(mwindow.window):
-    #for i in range(5):
+    #for i in range(300):
         # inputs
         mwindow.processInput()
 
         mwindow.clearWindow((0., 0., 0.))
         curT = time.time()
-        # set light properties
+
 
         ceta = math.radians(curT * 50)
 
         lightPos = np.array(
             [1.5 * math.cos(math.radians(curT * 100)), 0, depth + 1.5 * math.sin(math.radians(curT * 100))])
 
+        # set light properties (remember to call updateLight())
+        mlight1.setStrength(0.5)
+        #mlight1.setColor([math.sin(math.radians(curT * 50)), 0.5, math.cos(math.radians(curT * 50))])
+        mlight1.setColor(3*[1.])
         mlight1.setAttenuation(True)
         mlight1.setDirectional(True)
         mlight1.setPos(lightPos)
+        mrenderer.updateLight()
 
         # set model pose & draw
         lightRot = np.array([0, 0, 0])
         lightTrans = lightPos
-        modelRot = np.array([0, ceta, 0])
-        modelTrans = np.array([0, 0, depth])
+        modelRot = np.array([math.radians(-90), 0, ceta])
+        modelTrans = np.array([0, -0.3, depth])
 
         # Dataset 3D model scale (m)
-        modelScale = 0.01
+        modelScale = 0.005
         modelMat = np.diag(3 * [modelScale] + [1.])
         LightExt = toExtMat(lightRot, lightTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
         ModelExt = toExtMat(modelRot, modelTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
-        mrenderer.setModelMaterial(mlight1, ambient=0.5, diffuse=0.5, specular=0.5, shininess=1.0)
-        rgb,im_depth = mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=True, drawBox=True, linearDepth=False)
+
+        rgb,im_depth = mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=True, drawBox=False, linearDepth=False)
 
 
-        #imsave(str(i) + '.png', im_depth)
+        #imsave('../report/'+str(i) + '.png', rgb)
 
     glfw.terminate()
     

@@ -2,10 +2,8 @@
 import os
 from OpenGL.GL import *
 from shader import Shader
-from mesh import Mesh,Texture
+from mesh import Mesh,Texture, PhongParam
 import pyassimp
-import glm
-import cv2
 import numpy as np
 from ctypes import  c_void_p
 from scipy.misc import imread
@@ -105,23 +103,36 @@ class Model:
             _material = scene.materials[mesh.materialindex]
 
             # diffuse maps
-            Maps = self.loadMaterialTextures(_material)
+            Maps, phongParam = self.loadMaterialTextures(_material)
             textures.extend(Maps)
 
 
-        return Mesh(vertices, indices, textures)
+        return Mesh(vertices, indices, textures, phongParam)
 
 
     def loadMaterialTextures(self,mat):
         textures = []
+        phongParam = PhongParam()
+
         normal_path = ''
         diff_path = ''
         spec_path = ''
         bmp_path = ''
         png_path = ''
         jpg_path = ''
+
+
         for key, value in mat.properties.items():
-            if key == 'file':
+            if key == 'ambient':
+                phongParam.Ka = value
+            elif key == 'diffuse':
+                phongParam.Kd = value
+            elif key == 'specular':
+                phongParam.Ks = value
+            elif key == 'shininess':
+                phongParam.Ns = value
+            # for maps path
+            elif key == 'file':
                 if value.find('_ddn') > 0:
                     normal_path = value
                 elif value.find('_dif') > 0:
@@ -143,9 +154,10 @@ class Model:
                 texture.id = self.TextureFromFile(mapPath)
                 texture.type = key
                 texture.path =os.path.join(self.directory,mapPath)
-                textures.append(texture)
+                if texture.id is not -1:
+                    textures.append(texture)
 
-        return textures
+        return textures, phongParam
 
 
     def TextureFromFile(self, path):
@@ -153,7 +165,12 @@ class Model:
 
         textureID = glGenTextures(1)
         im = imread(filename)
-        if np.shape(im)[0]>0:
+        if np.shape(im)[0]>0 :
+            try:
+                texHeight, texWidth, depth = np.shape(im)
+            except:
+                print('texture'+filename+' has unexpected dimension')
+                return -1
             glBindTexture(GL_TEXTURE_2D, textureID)
             texHeight, texWidth, depth = np.shape(im)
             if path.split('.', 1)[1] == 'png' and depth == 4:
@@ -172,14 +189,4 @@ class Model:
             print('Fail to load textures at path %s',self.__get_directory())
 
         return textureID
-
-
-
-
-
-if __name__ == '__main__':
-
-
-
-    print('d')
 

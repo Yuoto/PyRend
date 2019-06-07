@@ -1,25 +1,44 @@
-import glm
 from OpenGL.GL import *
 from ctypes import sizeof, c_void_p, c_float
 from shader import Shader
-import sys
 import numpy as np
-import glm
 
+class PhongParam:
+    def __init__(self, Ka = 3*[1.], Kd = 3*[1.], Ks = 3*[1.], Ns = 1.0):
+        """
+
+        :param Ka: ambient coefficient, with default value [1.0, 1.0, 1.0]
+        :param Kd: diffuse coefficient, with default value [1.0, 1.0, 1.0]
+        :param Ks: specular coefficient, with default value [1.0, 1.0, 1.0]
+        :param Ns: shininess, with default value 1.0
+        See more for .mtl format at http://paulbourke.net/dataformats/mtl/
+        """
+        self.Ka = Ka
+        self.Kd = Kd
+        self.Ks = Ks
+        self.Ns = Ns
 
 class Texture:
     def __init__(self,id=None,type='',path=''):
+
+        """
+
+        :param id: The texture ID returned from glGenTextures()
+        :param type: texture map type
+        :param path: file name of the texture
+        """
         self.id = id
         self.type = type
         self.path = path
 
 
 class Mesh():
-    def __init__(self, vertices, indices, textures):
+    def __init__(self, vertices, indices, textures, phongParam):
 
         self.vertices = np.array(vertices,dtype=np.float32)
         self.indices = np.array(indices,dtype=np.uint32)
         self.textures = textures
+        self.phongParam = phongParam
         self.stride = 12*sizeof(c_float)
 
         self.__setupMesh()
@@ -66,29 +85,35 @@ class Mesh():
 
     def draw(self,shader):
 
+        # Set the phong shading model to the corresponding mesh
+        shader.setVec3('material.Ka', self.phongParam.Ka)
+        shader.setVec3('material.Kd', self.phongParam.Kd)
+        shader.setVec3('material.Ks', self.phongParam.Ks)
+        shader.setFloat('material.Ns', self.phongParam.Ns)
 
         if any(self.textures):
             # ------------------ Active Textures
             shader.setBool('hasTexture', 1)
             for i,tex in enumerate(self.textures):
                 if tex.type == 'diffusion':
-                    shader.setInt('material.diffuse', i)
+                    shader.setInt('material.map_Kd', i)
                     glActiveTexture(GL_TEXTURE0 + i)
                     glBindTexture(GL_TEXTURE_2D, tex.id)
 
                 elif tex.type == 'specular':
-                    shader.setInt('material.specular', i)
+                    shader.setInt('material.map_Ks', i)
                     glActiveTexture(GL_TEXTURE0 + i)
                     glBindTexture(GL_TEXTURE_2D, tex.id)
 
-                elif tex.type == 'normal':
-                    shader.setInt('material.normal', i)
-                    glActiveTexture(GL_TEXTURE0 + i)
-                    glBindTexture(GL_TEXTURE_2D, tex.id)
                 else:
-                    shader.setInt('material.diffuse', i)
+                    shader.setInt('material.map_Kd', i)
                     glActiveTexture(GL_TEXTURE0 + i)
                     glBindTexture(GL_TEXTURE_2D, tex.id)
+
+                    shader.setInt('material.map_Ka', i)
+                    glActiveTexture(GL_TEXTURE0 + i)
+                    glBindTexture(GL_TEXTURE_2D, tex.id)
+
         else:
             shader.setBool('hasTexture',0)
 

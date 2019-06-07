@@ -4,12 +4,8 @@ import glfw
 from OpenGL.GL import *
 from ctypes import  sizeof, c_void_p,c_float
 import numpy as np
-import math
 from shader import Shader
 from _model import Model
-from camera.camera import Camera
-from utiles.transform import toExtMat
-from scipy.misc import imread,imsave
 
 
 
@@ -34,18 +30,19 @@ float_size = sizeof(c_float)
 
 
 class Light:
-    def __init__(self, lightPos=[0,0,3.0], lightColor=[1.0,1.0,1.0], lightConstant=1, lightLinear=0.0014, lightQuadratic=0.000007, Directional=True, Attenuation = True):
+    def __init__(self, lightPos=[0,0,3.0], lightColor=[1.0,1.0,1.0], lightStrength=0.5, lightConstant=1, lightLinear=0.0014, lightQuadratic=0.000007, Directional=True, Attenuation = True):
         '''
 
-        :param lightPos: translation
-        :param lightColor: [r,g,b] color of the light
+        :param lightPos: translation of the light
+        :param lightColor: [r,g,b] color of the light, with a default value of [1.0, 1.0, 1.0] representing white light
 
         credit to: https://learnopengl.com/Lighting/Materials
+        :param lightStrength: Strength of the light (independent of the model's material), ranged from 0~1
         :param lightConstant:
         :param lightLinear:
         :param lightQuadratic:
-        :param Directional:
-        :param Attenuation:
+        :param Directional: Enable Directional light
+        :param Attenuation: Enable Attenuation
         '''
         self.lightPos = lightPos
         self.lightColor = lightColor
@@ -54,6 +51,7 @@ class Light:
         self.lightQuadratic = lightQuadratic
         self.enableDirectional = Directional
         self.enableAttenuation = Attenuation
+        self.lightStrength = lightStrength
 
     def setPos(self,Pos):
         self.lightPos = Pos
@@ -69,6 +67,9 @@ class Light:
 
     def setColor(self,color):
         self.lightColor = color
+
+    def setStrength(self,strength):
+        self.lightStrength = strength
 
     def setDirectional(self, Directional):
         self.enableDirectional = Directional
@@ -109,11 +110,6 @@ class Window:
         glfw.swap_buffers(self.window)
         glfw.poll_events()
 
-    def screenShot(self):
-        imageBuf = glReadPixels(0, 0, self.windowSize[0], self.windowSize[1], GL_RGB, GL_UNSIGNED_BYTE)
-        im = np.fromstring(imageBuf, np.uint8)
-        image = np.reshape(im,(self.windowSize[1], self.windowSize[0], 3))
-        return np.flipud(image)
 
 
 class Renderer:
@@ -121,6 +117,7 @@ class Renderer:
 
         self.camera = camera
         self.window = window
+        self.light = light
         self.__modelShader = Shader(vShaderPath,fShaderPath)
         self.__lampShader = Shader(vShaderLampPath, fShaderLampPath)
         self.__tightBoxShader = Shader(vShaderTightBoxPath, fShaderTightBoxPath)
@@ -171,7 +168,7 @@ class Renderer:
         self.__vboTightBox, self.__vaoTightBox = self.__setUp3DTightBox()
         self.__vboLamp, self.__vaoLamp = self.__setUpLamp(self.__lampVertices)
         self.__setUpBlending()
-        self.setModelMaterial(light)
+        self.updateLight()
 
     def __setUpBlending(self):
         # Enable depth test and blend
@@ -244,25 +241,21 @@ class Renderer:
 
         return _3DBox
 
-    def setModelMaterial(self, light, diffuse=1.0, ambient=1.0, specular=1.0, shininess=1.0):
-        # set model light info
+    def updateLight(self):
+        # set the light shader
         self.__modelShader.use()
-        self.__modelShader.setBool('light.enableDirectional', light.enableDirectional)
-        self.__modelShader.setBool('light.enableAttenuation', light.enableAttenuation)
+        self.__modelShader.setBool('light.enableDirectional', self.light.enableDirectional)
+        self.__modelShader.setBool('light.enableAttenuation', self.light.enableAttenuation)
 
-        self.__modelShader.setVec3('light.position', light.lightPos)
-        self.__modelShader.setFloat('light.constant', light.lightConstant)
-        self.__modelShader.setFloat('light.linear', light.lightLinear)
-        self.__modelShader.setFloat('light.quadratic', light.lightQuadratic)
+        self.__modelShader.setVec3('light.position', self.light.lightPos)
+        self.__modelShader.setFloat('light.constant', self.light.lightConstant)
+        self.__modelShader.setFloat('light.linear', self.light.lightLinear)
+        self.__modelShader.setFloat('light.quadratic', self.light.lightQuadratic)
+        self.__modelShader.setFloat('light.strength', self.light.lightStrength)
+        self.__modelShader.setVec3('light.color', self.light.lightColor)
 
-        # set box material
-        diffuseColor = [ x*diffuse for x in light.lightColor ]
-        ambientColor = [ x*ambient for x in diffuseColor]
-        specularVec = [specular,specular,specular]
-        self.__modelShader.setVec3('light.ambient', ambientColor)
-        self.__modelShader.setVec3('light.setModelMaterialdiffuse', diffuseColor)
-        self.__modelShader.setVec3('light.specular', specularVec)
-        self.__modelShader.setFloat('material.shininess', shininess)
+
+
 
 
     def __setModelPose(self, modelMat, extrinsicMat):
@@ -273,6 +266,7 @@ class Renderer:
 
     def __drawLamp(self, extrinsicMat):
         self.__lampShader.use()
+        self.__lampShader.setVec3('color',self.light.lightColor)
         self.__lampShader.setMat4('intrinsic', self.camera.OpenGLperspective)
         self.__lampShader.setMat4('extrinsic', extrinsicMat)
         model = np.eye(4)
@@ -299,7 +293,7 @@ class Renderer:
         :param drawLamp: enable lamp drawing
         :param drawBox: enable box drawing
         :param color: color of the box
-        :param linearDepth: enable linear depth
+        :param linearDepth: enable linear depth (which is a must for correct groundtruth)
         :return: rgb, depth
         """
 

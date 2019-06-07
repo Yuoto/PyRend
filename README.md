@@ -3,11 +3,11 @@
 <b>Depedencies:</b>
 <ul>
 <li>PyOpenGL</li>
-<li>glfw</li>
+<li>pyglfw 1.8.1</li>
 <li>Cython</li>
 <li>numpy</li>
-<li>scipy</li>
-<li>tqdm</li>
+<li>scipy 1.0.1</li>
+<li>pyassimp 4.1.3</li>
 </ul>	
 <br />
 
@@ -24,4 +24,5 @@
 <br />
 Run the script "rendererTest.py" to test renderer.<br />
 Run the script "generate_Synthetic_V2.py" to generate training data with groundtruths in .json format<br />
+Notice: Newer version of pyassimp might not work
 

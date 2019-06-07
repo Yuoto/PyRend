@@ -9,18 +9,21 @@ in vec3 FragPos;
 out vec4 FragColor;
 
 struct Material{
-  sampler2D diffuse;
-  sampler2D ddn;  
-  sampler2D specular;
-  float shininess;
+  sampler2D map_Kd;  //diffuse map
+  sampler2D map_Ka;  //ambient map
+  sampler2D map_Ks;  //specular map
+  
+  vec3 Kd;  //diffuse coefficient
+  vec3 Ka;  //ambient coefficient
+  vec3 Ks;  //specular coefficient
+  float Ns;  //shininess
 };
 
 struct Light{
   vec3 position;
 
-  vec3 ambient;
-  vec3 diffuse;
-  vec3 specular;
+  vec3 color;
+  float strength;
 
   float constant;
   float linear;
@@ -45,13 +48,13 @@ void main()
 
 	//Considering Texture
 	if (hasTexture){
-		ambient = light.ambient* texture(material.diffuse,TexCoords).rgb*color*alhpa;
-		diffuse = light.diffuse*texture(material.diffuse,TexCoords).rgb*color*alhpa;
-		specular = light.specular*texture(material.specular,TexCoords).rgb*color*alhpa;
+		ambient = light.strength*light.color*texture(material.map_Ka,TexCoords).rgb*color*alhpa;
+		diffuse = light.strength*light.color*texture(material.map_Kd,TexCoords).rgb*color*alhpa;
+		specular = light.strength*light.color*texture(material.map_Ks,TexCoords).rgb*color*alhpa;
 	} else {
-		ambient = light.ambient*color*alhpa;
-		diffuse = light.diffuse*color*alhpa;
-		specular = light.specular*color*alhpa;
+		ambient = light.strength*light.color*material.Ka*color*alhpa;
+		diffuse = light.strength*light.color*material.Kd*color*alhpa;
+		specular = light.strength*light.color*material.Ks*color*alhpa;
 	}
 
 	//considering direction(update diffuse and specular coefficient)
@@ -65,7 +68,7 @@ void main()
 		//specular
 		vec3 viewDir = normalize(viewPos-FragPos);
 		vec3 reflectDir = reflect(-lightDir,norm);
-		float spec = pow(max(dot(viewDir,reflectDir),0.0),material.shininess);
+		float spec = pow(max(dot(viewDir,reflectDir),0.0),material.Ns);
 		specular += spec*specular;
 	}
 	
