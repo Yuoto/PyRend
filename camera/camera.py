@@ -49,6 +49,7 @@ class Camera():
         f = self.far
         n = self.near
 
+        #OpenGL coordinate is in the left-hand system
         OpenGLperspective = np.array([[fx/cx,0,0,0],
                          [0,fy/cy,0,0],
                          [0,0,-(f+n)/(f-n),-2*f*n/(f-n)],
@@ -59,14 +60,19 @@ class Camera():
 
 
 
-    def Project(self,point, isOpenCV=False):
+    def project(self,point, isOpenCV=False, invertX=True):
 
         '''
 
         :param point: (x,y,z,z) in homogeneous coordinate of the camera
-        :param isOpenCV: if rendered with OpenCV intrinsic matrix
+        :param isOpenCV: if rendered with OpenCV intrinsic matrix (if not, then near, far plane is considered)
+        :param invertX: if invert the x axis during projection
         :return: (x,y) in screen coordinate
         '''
+        # Note that the positive X axis of OpenGL(rendered with glsl shader) is different from that of OpenCV, so the project function(usually in OpenCV coordinate) here
+        # inverts the axis to result in the same frame as the api render.draw()
+        if invertX:
+            point[0] = -point[0]
 
         # OpenCV Method
         if isOpenCV:
