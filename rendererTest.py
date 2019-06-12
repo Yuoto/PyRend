@@ -8,12 +8,43 @@ from utiles.transform import toExtMat, SO3toSE3
 import glfw
 import math,random
 import numpy as np
+import cv2
 from scipy.misc import imread,imsave
 
 
 
 
 random.seed(0)
+
+
+def draw_box_without_OpenGL(renderer,img,modelMat,ModelExt):
+    '''
+
+    :param renderer: renderer object
+    :param img: image to draw
+    :param modelMat: model matrix
+    :return: ModelExt: model intrinsic matrix
+    '''
+    tightBox = renderer.get3DTightBox()
+    pixels = np.zeros((8, 2), dtype=int)
+    for j, xc in enumerate(tightBox):
+        pixels[j] = renderer.camera.project(np.dot(ModelExt, np.dot(modelMat, np.append(xc, [1.0], axis=0))), isOpenCV=True,
+                                  invertX=True)
+    cv2.line(img, tuple(pixels[0]), tuple(pixels[1]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[2]), tuple(pixels[3]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[4]), tuple(pixels[5]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[6]), tuple(pixels[7]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[0]), tuple(pixels[4]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[1]), tuple(pixels[5]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[3]), tuple(pixels[7]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[2]), tuple(pixels[6]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[1]), tuple(pixels[3]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[5]), tuple(pixels[7]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[0]), tuple(pixels[2]), color=(255, 255, 255), thickness=1)
+    cv2.line(img, tuple(pixels[4]), tuple(pixels[6]), color=(255, 255, 255), thickness=1)
+
+    return img
+
 
 def getRandomPose(elevationRange,azimuthRange,inplaneRange):
 
@@ -46,7 +77,7 @@ def main():
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
 
     #=== If used ShapeNet model, put .mtl and texture file (.jpg) in the same directory that contains .obj file
-    modelPath = '/home/yuoto/AR/Renderer/3dmodel/1a622b84abb294515dbd53c7c10cfe76.obj'
+    #modelPath = '/home/yuoto/AR/Renderer/3dmodel/1a4216ac5ffbf1e89c7ce4b816b39bd0.obj'
 
 
 
@@ -68,8 +99,8 @@ def main():
     mrenderer = Renderer(mlight1, mcam1,mwindow, modelPath, vShaderPath, fShaderPath, vShaderLampPath, fShaderLampPath,vShaderTightBoxPath,fShaderTightBoxPath)
 
 
-    while not glfw.window_should_close(mwindow.window):
-    #for i in range(300):
+    #while not glfw.window_should_close(mwindow.window):
+    for i in range(50):
         # inputs
         mwindow.processInput()
 
@@ -84,7 +115,8 @@ def main():
 
         # set light properties (remember to call updateLight())
         mlight1.setStrength(0.5)
-        #mlight1.setColor([math.sin(math.radians(curT * 50)), 0.5, math.cos(math.radians(curT * 50))])
+        #mlight1.setStrength(0.5 + 0.35*math.sin(math.radians(curT * 200)))
+        #mlight1.setColor([math.sin(math.radians(curT * 50)), math.cos(math.radians(curT * 50)), math.cos(math.radians(curT * 50))])
         mlight1.setColor(3*[1.])
         mlight1.setAttenuation(True)
         mlight1.setDirectional(True)
@@ -95,20 +127,24 @@ def main():
         lightRot = np.array([0, 0, 0])
         lightTrans = lightPos
         modelRot = np.array([math.radians(-90), 0, ceta])
-        modelTrans = np.array([0, -0.3, depth])
+        modelTrans = np.array([0, -0.1, depth])
 
         # Dataset 3D model scale (m)
-        modelScale = 0.005
+        modelScale = 1
         modelMat = np.diag(3 * [modelScale] + [1.])
         LightExt = toExtMat(lightRot, lightTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
         ModelExt = toExtMat(modelRot, modelTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
 
-        rgb,im_depth = mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=True, drawBox=False, linearDepth=False)
+        rgb,im_depth = mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=True, drawBox=True, linearDepth=False)
 
+        imsave('box.png',rgb)
+        img = imread('box.png')
 
-        #imsave('../report/'+str(i) + '.png', rgb)
+        img = draw_box_without_OpenGL(mrenderer,img,modelMat,ModelExt)
+        imsave('box.png', img)
+
 
     glfw.terminate()
     

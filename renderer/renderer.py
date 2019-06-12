@@ -228,10 +228,10 @@ class Renderer:
         return vbo_lamp, vao_lamp
 
     def get3DTightBox(self):
-        # Note that the positive X axis of OpenGL is different from that of OpenCV
         _3DBox = np.zeros([8, 3], dtype=np.float32)
-        _3DBox[0] = [self.__3dModel.Xmin,self.__3dModel.Ymin,self.__3dModel.Zmin]
-        _3DBox[1] =  [self.__3dModel.Xmin,self.__3dModel.Ymin,self.__3dModel.Zmax]
+        # convert to OpenGL left hand coordinate system
+        _3DBox[0] = [self.__3dModel.Xmin, self.__3dModel.Ymin, self.__3dModel.Zmin]
+        _3DBox[1] = [self.__3dModel.Xmin, self.__3dModel.Ymin, self.__3dModel.Zmax]
         _3DBox[2] = [self.__3dModel.Xmin, self.__3dModel.Ymax, self.__3dModel.Zmin]
         _3DBox[3] = [self.__3dModel.Xmin, self.__3dModel.Ymax, self.__3dModel.Zmax]
         _3DBox[4] = [self.__3dModel.Xmax, self.__3dModel.Ymin, self.__3dModel.Zmin]
