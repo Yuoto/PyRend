@@ -39,8 +39,26 @@ class Camera():
         return intrinsic
 
 
-    def GetCameraViewMatrix(self):
-        assert (NotImplemented)
+    def GetCameraViewMatrix(self, up, eye, at):
+        camDir = eye - at
+        camDir = camDir/np.linalg.norm(camDir)
+
+        camRight = np.cross(up,camDir)
+        camRight = camRight/np.linalg.norm(camRight)
+
+        camUp = np.cross(camDir,camRight)
+
+        R_inv = np.block([[camRight,0],
+                           [camUp,0],
+                           [camDir,0],
+                           [0,0,0,1]])
+        T_inv = np.block([[1,0,0, -eye[0]],
+                          [0, 1, 0, -eye[1]],
+                          [0, 0, 1, -eye[2]],
+                          [0, 0, 0, 1]])
+        return np.dot(R_inv,T_inv)
+
+
 
     def __setOpenGLPerspective(self):
 
