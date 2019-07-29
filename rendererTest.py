@@ -114,6 +114,7 @@ def main():
         # At that time, camera position has to be defined (better using spherical coordinate
         camPos = np.array([radius*np.cos(elevation)*np.cos(azimuth), radius*np.sin(elevation), radius*np.cos(elevation)*np.sin(azimuth)])
 
+
         # set light properties (remember to call updateLight())
         mlight1.setStrength(0.5)
         mlight1.setColor(3 * [1.])
@@ -138,7 +139,8 @@ def main():
         ModelExt = toExtMat(modelRot, modelTrans, PoseParameterModel='Eulerzyx', isRadian=True)
         '''
 
-        ModelExt = mcam1.GetCameraViewMatrix(up=[0, 1, 0], eye=camPos, at=[0, 0, 0])
+        ModelExt = mcam1.GetCameraViewMatrix(up=[0, 1, 0], eye=camPos, at=[0, 0, 0], inplane=np.radians(90*np.sin(5*curT)),isRadian=True)
+
 
         LightExt = toExtMat(lightRot, lightTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
