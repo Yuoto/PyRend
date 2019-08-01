@@ -280,7 +280,7 @@ class Renderer:
         n = self.camera.near
         ndc_depth = 2*depth-1
 
-        return ((2.0 * n * f) / (f + n - ndc_depth * (f - n))* 1000).astype(np.uint16)
+        return ((2.0 * n * f) / (f + n - ndc_depth * (f - n)))
 
 
 
