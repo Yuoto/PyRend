@@ -315,7 +315,9 @@ class Renderer:
         imageBuf = glReadPixels(0, 0, self.window.windowSize[0], self.window.windowSize[1], GL_RGB, GL_UNSIGNED_BYTE)
         im = np.fromstring(imageBuf, np.uint8)
         rgb = np.flipud(np.reshape(im, (self.window.windowSize[1], self.window.windowSize[0], 3)))
-        mask = (rgb[:, :, 0] != 0) | (rgb[:, :, 1] != 0) | (rgb[:, :, 2] != 0)
+
+        # Since the value from depth buffer contains non-linear depth ~[0,1], background depth will be cast to 1.
+        mask = depth < 1
         if linearDepth:
             depth = mask*self.__nonLinearDepth2Linear(depth)
         else:
