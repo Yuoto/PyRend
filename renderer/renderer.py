@@ -20,6 +20,10 @@ def init_glfw():
     glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
     glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
+    # enable MSAA with 4 sub-samples
+    glfw.window_hint(glfw.SAMPLES,4)
+
+
 
 
 
@@ -175,6 +179,9 @@ class Renderer:
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glEnable(GL_BLEND)
         glEnable(GL_DEPTH_TEST)
+
+        # Enable MSAA
+        glEnable(GL_MULTISAMPLE)
 
     def __setUp3DTightBox(self):
         vbo_TightBox = glGenBuffers(1)
