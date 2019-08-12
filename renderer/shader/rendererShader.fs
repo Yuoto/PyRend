@@ -51,6 +51,7 @@ void main()
 		ambient = light.strength*light.color*texture(material.map_Ka,TexCoords).rgb*color*alhpa;
 		diffuse = light.strength*light.color*texture(material.map_Kd,TexCoords).rgb*color*alhpa;
 		specular = light.strength*light.color*texture(material.map_Ks,TexCoords).rgb*color*alhpa;
+
 	} else {
 		ambient = light.strength*light.color*material.Ka*color*alhpa;
 		diffuse = light.strength*light.color*material.Kd*color*alhpa;
