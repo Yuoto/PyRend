@@ -49,7 +49,7 @@ class Shader:
         glUseProgram(self.programID)
 
     def setBool(self, UniformName, value):
-        glUniform1i(glGetUniformLocation(self.programID, UniformName), bool(value))
+        glUniform1i(glGetUniformLocation(self.programID, UniformName), (value))
 
     def setInt(self,UniformName,value):
         glUniform1i(glGetUniformLocation(self.programID,UniformName),value)
