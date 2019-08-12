@@ -86,6 +86,7 @@ class Mesh():
     def draw(self,shader):
 
         # Set the phong shading model to the corresponding mesh
+        shader.use()
         shader.setVec3('material.Ka', self.phongParam.Ka)
         shader.setVec3('material.Kd', self.phongParam.Kd)
         shader.setVec3('material.Ks', self.phongParam.Ks)
@@ -107,12 +108,11 @@ class Mesh():
 
                 else:
                     shader.setInt('material.map_Kd', i)
-                    glActiveTexture(GL_TEXTURE0 + i)
+                    shader.setInt('material.map_Ka', i)
+                    #shader.setInt('material.map_Ks', i)
+                    glActiveTexture(GL_TEXTURE0+i)
                     glBindTexture(GL_TEXTURE_2D, tex.id)
 
-                    shader.setInt('material.map_Ka', i)
-                    glActiveTexture(GL_TEXTURE0 + i)
-                    glBindTexture(GL_TEXTURE_2D, tex.id)
 
         else:
             shader.setBool('hasTexture',0)
