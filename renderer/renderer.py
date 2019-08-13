@@ -5,7 +5,7 @@ from OpenGL.GL import *
 from ctypes import  sizeof, c_void_p,c_float
 import numpy as np
 from shader import Shader
-from _model import Model
+from model import Model
 
 
 
@@ -178,7 +178,11 @@ class Renderer:
         # Enable depth test and blend
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glEnable(GL_BLEND)
+
+        # Due to some depth problem for models in ShapeNet
+        glDepthFunc(GL_LEQUAL)
         glEnable(GL_DEPTH_TEST)
+
 
         # Enable MSAA
         glEnable(GL_MULTISAMPLE)
