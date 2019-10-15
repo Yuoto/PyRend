@@ -4,7 +4,6 @@
 <ul>
 <li>PyOpenGL</li>
 <li>pyglfw 1.8.1</li>
-<li>Cython</li>
 <li>numpy</li>
 <li>scipy 1.0.1</li>
 <li>pyassimp 4.1.3</li>
