@@ -22,6 +22,8 @@
  
 <br />
 Run the script "rendererTest.py" to test renderer.<br />
-Run the script "generate_Synthetic_V2.py" to generate training data with groundtruths in .json format<br />
-Notice: Newer version of pyassimp might not work
+
+Notice1: Since scipy removed imread & imsave in higher version, a lower scipy version is needed. (Will be fixed recently)
+Notice2: After installing pyassimp via pip, for windows users, you might need to put the dynamic libraries as well as binaries assimp.dll & assimp.lib (Precompiled binaries can be downloaded, however for the latest version a compilation from source code is needed) into the directory where pyassimp/helper.py lies in (usually it's at Pythonxx/Lib/site-packages/pyassimp/). As for linux users, simply install libassimp-dev using apt-get.
+
 
