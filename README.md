@@ -4,7 +4,6 @@
 <ul>
 <li>PyOpenGL</li>
 <li>pyglfw 1.8.1</li>
-<li>Cython</li>
 <li>numpy</li>
 <li>scipy 1.0.1</li>
 <li>pyassimp 4.1.3</li>
@@ -23,6 +22,9 @@
  
 <br />
 Run the script "rendererTest.py" to test renderer.<br />
-Run the script "generate_Synthetic_V2.py" to generate training data with groundtruths in .json format<br />
-Notice: Newer version of pyassimp might not work
+
+<ul>
+<li><b>Notice1</b>: Since scipy removed imread & imsave in higher version, a lower scipy version is needed. (Will be fixed recently)</li>
+<li><b>Notice2</b>: After installing pyassimp via pip, for windows users, you might need to put the dynamic libraries as well as binaries assimp.dll & assimp.lib (Precompiled binaries can be downloaded, however for the latest version a compilation from source code is needed) into the directory where pyassimp/helper.py lies in (usually it's at Pythonxx/Lib/site-packages/pyassimp/). As for linux users, simply install libassimp-dev using apt-get.</li>
+</ul>
 
