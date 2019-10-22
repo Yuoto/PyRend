@@ -1,9 +1,12 @@
 import time
 import ctypes
 import sys, os
-
+import OpenGL.GL as gl
+import imgui
+from imgui.integrations.glfw import GlfwRenderer
 sys.path.append(os.path.dirname(__file__))
-from renderer.renderer import Light, Window, Renderer
+from window.window import Window
+from renderer.renderer import Light, Renderer
 from camera.camera import Camera
 from utiles.transform import toExtMat, SO3toSE3, setTranslation
 import glfw
@@ -55,16 +58,16 @@ def getRandomPose(elevationRange, azimuthRange, inplaneRange):
 
 def main():
     # Shader info (Use absolute path)
-    vShaderPath = '/home/yuoto/AR/Renderer/renderer/shader/rendererShader.vs'
-    fShaderPath = '/home/yuoto/AR/Renderer/renderer/shader/rendererShader.fs'
-    vShaderLampPath = '/home/yuoto/AR/Renderer/renderer/shader/lamp.vs'
-    fShaderLampPath = '/home/yuoto/AR/Renderer/renderer/shader/lamp.fs'
-    vShaderTightBoxPath = '/home/yuoto/AR/Renderer/renderer/shader/TightBox.vs'
-    fShaderTightBoxPath = '/home/yuoto/AR/Renderer/renderer/shader/TightBox.fs'
+    vShaderPath = "D:\MultimediaIClab\AR\Rendering\pyrend/renderer\shader/rendererShader.vs"
+    fShaderPath = 'D:\MultimediaIClab\AR\Rendering\pyrend/renderer\shader/rendererShader.fs'
+    vShaderLampPath = 'D:\MultimediaIClab\AR\Rendering\pyrend/renderer\shader\lamp.vs'
+    fShaderLampPath = 'D:\MultimediaIClab\AR\Rendering\pyrend/renderer\shader\lamp.fs'
+    vShaderTightBoxPath = 'D:\MultimediaIClab\AR\Rendering\pyrend/renderer\shader\TightBox.vs'
+    fShaderTightBoxPath = 'D:\MultimediaIClab\AR\Rendering\pyrend/renderer\shader\TightBox.fs'
 
     # Model info
     #modelPath = '/home/yuoto/AR/estimation/models/obj_02.ply'
-    modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
+    modelPath = 'C:/Users\Win10-PC\Downloads/3dmodels/3dmodels\dragon\geometry.ply'
     #modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
@@ -73,12 +76,17 @@ def main():
     #modelPath = '/home/yuoto/AR/Renderer/3dmodel/cam/7bff4fd4dc53de7496dece3f86cb5dd5.obj'
     #modelPath = '/home/yuoto/Downloads/mesh_0.obj'
 
-
+    # Setup Imgui context
+    GUI = False
+    if GUI:
+        imgui.create_context()
 
     # Window
-    SCR_WIDTH = 960
-    SCR_HEIGHT = 540
+    SCR_WIDTH = 1280
+    SCR_HEIGHT = 720
     mwindow = Window((SCR_WIDTH, SCR_HEIGHT), 'Renderer Test')
+    if GUI:
+        app_window = GlfwRenderer(mwindow.window)
 
     # Light info
     mlight1 = Light()
@@ -93,18 +101,24 @@ def main():
 
     #for i in range(2):
     while not glfw.window_should_close(mwindow.window):
-        # for i in range(50):
-        # inputs
-        mwindow.processInput()
+        # gui set up
+        if GUI:
+            imgui.new_frame()
 
-        mwindow.clearWindow((0., 0., 0.))
+        # inputs
+        glfw.poll_events()
+        if GUI:
+            app_window.process_inputs()
+        mwindow.clearWindow((0.1, 0.1,0.1))
+
+
         curT = time.time()
 
         ceta = math.radians(curT * 300)
 
         lightPos = np.array(
             [0,1,0])
-        radius = 3
+        radius = 1
 
         azimuth = np.radians(ceta)
         elevation = np.radians(-30)
@@ -119,10 +133,10 @@ def main():
 
 
         # set light properties (remember to call updateLight())
-        mlight1.setStrength(0.3)
+        mlight1.setStrength(0.4)
         mlight1.setColor(3 * [1.])
-        mlight1.setAttenuation(False)
-        mlight1.setDirectional(False)
+        mlight1.setAttenuation(True)
+        mlight1.setDirectional(True)
         mlight1.setPos(lightPos)
         mrenderer.updateLight()
 
@@ -157,20 +171,39 @@ def main():
 
         rgb, im_depth = mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=False, drawBox=True, linearDepth=True)
 
+        # ====================================== GUI
+        if GUI:
+            if imgui.begin_main_menu_bar():
+                if imgui.begin_menu("File", True):
+
+                    clicked_quit, selected_quit = imgui.menu_item(
+                        "Quit", 'Cmd+Q', False, True
+                    )
+
+                    if clicked_quit:
+                        exit(1)
+
+                    imgui.end_menu()
+                imgui.end_main_menu_bar()
+
+            imgui.show_test_window()
+
+            # print(app_window.io.mouse_down[0])
+            imgui.begin("Custom window", True)
+            imgui.text("Bar")
+            imgui.text_colored("Eggs", 0.2, 1., 0.)
+            imgui.end()
+
+            imgui.render()
+            app_window.render(imgui.get_draw_data())
+
         mwindow.updateWindow()
+        # ===================================================
 
-        #im = np.zeros((SCR_HEIGHT,SCR_WIDTH))
-        #draw_box_without_OpenGL(mrenderer, im, modelMat, ModelExt)
-        #imsave('cccrgb{:d}.png'.format(i),rgb)
-        #imsave('aa{:d}.png'.format(i), im)
-
-
-    # img = imread('box.png')
-    # img = draw_box_without_OpenGL(mrenderer,img,modelMat,ModelExt)
-    # imsave('box.png', img)
-
-
+    if GUI:
+        app_window.shutdown()
     glfw.terminate()
+
 
     return
 
