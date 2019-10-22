@@ -306,7 +306,7 @@ class Renderer:
         return ((2.0 * n * f) / (f + n - ndc_depth * (f - n)))
 
 
-    def set_vertex_buffer(self, pos=None, normal=None, color=None, tex=None, indices=[], mesh_id = None):
+    def set_vertex_buffer(self, pos=None, normal=None, color=None, tex=None, indices=np.array([]), mesh_id = None):
         """
         :param vertices: the format for N vertices stored in buffer is in a non-interleaving form:
          [v1.pos,.... vN.pos, v1.normal, ... ,vN.normal, v1.color, ...vN.color, v1.tex, ... vN.tex]
