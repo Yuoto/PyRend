@@ -36,7 +36,8 @@ struct Light{
 uniform vec3 viewPos;
 uniform Material material;
 uniform Light light;
-uniform bool hasTexture;
+uniform bool hasNormal, hasColor, hasTexture;
+
 
 void main()
 {    
@@ -47,19 +48,24 @@ void main()
 	vec3 specular;
 
 	//Considering Texture
+	
 	if (hasTexture){
-		ambient = light.strength*light.color*texture(material.map_Ka,TexCoords).rgb*color*alhpa;
-		diffuse = light.strength*light.color*texture(material.map_Kd,TexCoords).rgb*color*alhpa;
-		specular = light.strength*light.color*texture(material.map_Ks,TexCoords).rgb*color*alhpa;
+		ambient = light.strength*light.color*texture(material.map_Ka,TexCoords).rgb*alhpa;
+		diffuse = light.strength*light.color*texture(material.map_Kd,TexCoords).rgb*alhpa;
+		specular = light.strength*light.color*texture(material.map_Ks,TexCoords).rgb*alhpa;
 
-	} else {
+	} else if(hasColor){
 		ambient = light.strength*light.color*material.Ka*color*alhpa;
 		diffuse = light.strength*light.color*material.Kd*color*alhpa;
 		specular = light.strength*light.color*material.Ks*color*alhpa;
+	}else{
+			ambient = light.strength*light.color*material.Ka*alhpa;
+		diffuse = light.strength*light.color*material.Kd*alhpa;
+		specular = light.strength*light.color*material.Ks*alhpa;
 	}
 
 	//considering direction(update diffuse and specular coefficient)
-	if (light.enableDirectional){
+	if (light.enableDirectional && hasNormal){
 		//diffuse
 		vec3 norm = normalize(Normal);
 		vec3 lightDir = normalize(light.position-FragPos);

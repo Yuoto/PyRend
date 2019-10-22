@@ -14,14 +14,23 @@ out vec2 TexCoords;
 uniform mat4 model;
 uniform mat4 intrinsic;
 uniform mat4 extrinsic;
-
+uniform bool hasColor, hasTexture;
 
 void main(){
 
 	gl_Position = intrinsic*extrinsic*model*vec4(aPos,1.0);
 	Normal = mat3(transpose(inverse(extrinsic*model)))*aNormal;
-	Color = aColor;
+	if (hasColor){
+		Color = aColor;
+	}else{
+		Color = vec4(1.0);
+	}
 	FragPos = vec3(extrinsic*model*vec4(aPos,1.0));
-	TexCoords = aTexCoords;
+	if (hasTexture){
+		TexCoords = aTexCoords;
+	}else{
+		TexCoords = vec2(0.0);
+	}
+
 }
 
