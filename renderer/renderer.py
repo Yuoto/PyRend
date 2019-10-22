@@ -26,7 +26,6 @@ def init_glfw():
 
 
 
-
 float_size = sizeof(c_float)
 
 
@@ -171,21 +170,34 @@ class Renderer:
         self.__3DTightBoxVertices = self.get3DTightBox()
         self.__vboTightBox, self.__vaoTightBox = self.__setUp3DTightBox()
         self.__vboLamp, self.__vaoLamp = self.__setUpLamp(self.__lampVertices)
-        self.__setUpBlending()
+        self.setUpBlending()
         self.updateLight()
 
-    def __setUpBlending(self):
+    def setUpBlending(self, FaceCull=False,Blend=True,DepthFunc='GL_LEQUAL',DepthTest=True,MultiSample=True):
         # Enable depth test and blend
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        glEnable(GL_BLEND)
+        if Blend:
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            glEnable(GL_BLEND)
 
         # Due to some depth problem for models in ShapeNet
-        glDepthFunc(GL_LEQUAL)
-        glEnable(GL_DEPTH_TEST)
+        if DepthTest:
+
+            if DepthFunc == 'GL_LEQUAL':
+                glDepthFunc(GL_LEQUAL)
+            elif DepthFunc == 'GL_LESS':
+                glDepthFunc(GL_LESS)
+
+            glEnable(GL_DEPTH_TEST)
 
 
         # Enable MSAA
-        glEnable(GL_MULTISAMPLE)
+        if MultiSample:
+            glEnable(GL_MULTISAMPLE)
+
+        # Enable Face Culling
+        if FaceCull:
+            glEnable(GL_CULL_FACE)
+            glCullFace(GL_BACK)
 
     def __setUp3DTightBox(self):
         vbo_TightBox = glGenBuffers(1)
@@ -294,6 +306,23 @@ class Renderer:
         return ((2.0 * n * f) / (f + n - ndc_depth * (f - n)))
 
 
+    def set_vertex_buffer(self, pos=None, normal=None, color=None, tex=None, mesh_id = None):
+        """
+        :param vertices: the format for N vertices stored in buffer is in a non-interleaving form:
+         [v1.pos,.... vN.pos, v1.normal, ... ,vN.normal, v1.color, ...vN.color, v1.tex, ... vN.tex]
+         Note that both position & Normal have 3 channels (x,y,z),(Nx,Ny,Nz), color has 4 channels (r,g,b,a), texture has 2 (u,v).
+        :return: None
+        """
+        self.__3dModel.set_buffer(pos, normal, color, tex, mesh_id)
+
+    def get_vertex_buffer(self, attribute='position', mesh_id = None):
+        """
+
+        :param attribute: choose any attribute from position/normal/color/texture coordinate
+        :param mesh_id: what mesh id to be edit
+        :return:
+        """
+        return self.__3dModel.get_buffer_data(attribute,mesh_id)
 
     def draw(self, model, modelExtrinsic,lightExtrinsic,drawLamp=True, drawBox=False, color=[255,255,255], linearDepth=False):
         """
@@ -351,8 +380,6 @@ class Renderer:
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
 
-    def __del__(self):
-        glDeleteVertexArrays(1, [self.__vaoLamp])
 
 
 

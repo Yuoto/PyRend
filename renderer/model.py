@@ -21,7 +21,10 @@ class Model:
         self.Zmax = 0
         self.Zmin = 0
         self.directory = directory.rsplit('/', 1)[0]
+        #import time
+        #cur = time.time()
         self.__loadModel(directory)
+        #print("time elasped = {:1.4f}".format(time.time()-cur))
 
     def __get_directory(self):
         return self.directory
@@ -33,6 +36,22 @@ class Model:
         if not scene:
             print('ERROR::ASSIMP:: cannot load model')
         self.processNode(scene.rootnode, scene)
+
+
+
+    def set_buffer(self,pos, normal, color, tex, mesh_id):
+        if mesh_id == None:
+            self.meshes[0].set_mesh_buffer( pos, normal, color, tex)
+        else:
+            self.meshes[mesh_id].set_mesh_buffer( pos, normal, color, tex)
+
+    def get_buffer_data(self, attribute,mesh_id):
+
+        if mesh_id == None:
+            data =  self.meshes[0].get_mesh_buffer(attribute)
+        else:
+            data = self.meshes[mesh_id].get_mesh_buffer(attribute)
+        return  data
 
     def draw(self,shader):
         for mesh in self.meshes:
@@ -47,56 +66,32 @@ class Model:
 
     def processMesh(self, mesh, scene):
 
-        length = len(mesh.vertices)
-        vertices = np.zeros(length*12,dtype=np.float32)
-        indices = np.array([],dtype=np.uint32)
         textures = []
+        HasPos = mesh.vertices.any()
         HasNormal = mesh.normals.any()
         HasColor = mesh.colors.any()
         HasText = mesh.texturecoords.any()
         HasFace = mesh.faces.any()
+        attribute_mask = [HasPos, HasNormal, HasColor, HasText]
         # for the current mesh, process all the attribut
 
-        for idx in range(length):
-
-            base = 12*idx
-            vertices[base:base+3] = mesh.vertices[idx]
-
-            #Find Tight 3D Bounding Box
-            if mesh.vertices[idx][0] > self.Xmax:
-                self.Xmax = mesh.vertices[idx][0]
-            elif mesh.vertices[idx][0] < self.Xmin:
-                self.Xmin = mesh.vertices[idx][0]
-            if mesh.vertices[idx][1] > self.Ymax:
-                self.Ymax = mesh.vertices[idx][1]
-            elif mesh.vertices[idx][1] < self.Ymin:
-                self.Ymin = mesh.vertices[idx][1]
-            if mesh.vertices[idx][2] > self.Zmax:
-                self.Zmax = mesh.vertices[idx][2]
-            elif mesh.vertices[idx][2] < self.Zmin:
-                self.Zmin = mesh.vertices[idx][2]
-
-
-            if HasNormal:
-                vertices[base+3:base+6] = mesh.normals[idx]
-            else:
-                vertices[base + 3:base + 6] = 3*[0.]
-            if HasColor:
-                vertices[base+6:base+10] = mesh.colors[0][idx]
-            else:
-                vertices[base + 6:base+10] = 4*[255.]
-            if HasText:
-                vertices[base + 10:base + 12] = mesh.texturecoords[0][idx].tolist()[0:2]
-            else:
-                vertices[base + 10:base + 12] =  2*[0.]
-
-
-        # for the current mesh, process all the faces stored in it
-        # retrieve all indices of the face and store into indices vector
+        position = np.reshape(mesh.vertices, -1)
+        if HasNormal:
+            normal = np.reshape(mesh.normals, -1)
+        else:
+            normal = np.array([])
+        if HasColor:
+            color = np.reshape(mesh.colors[0], -1)
+        else:
+            color = np.array([])
+        if HasText:
+            texcoord = np.reshape(mesh.texturecoords[0][:,0:2], -1)
+        else:
+            texcoord = np.array([])
         if HasFace:
-            for face in mesh.faces:
-                for index in face:
-                    indices = np.append(indices,np.uint32(index))
+            indices = np.reshape(mesh.faces,-1).astype(np.uint32)
+        else:
+            indices = np.array([])
 
         # for the current mesh, process materials
         if mesh.materialindex >= 0:
@@ -107,7 +102,7 @@ class Model:
             textures.extend(Maps)
 
 
-        return Mesh(vertices, indices, textures, phongParam)
+        return Mesh(position, normal, color, texcoord, indices, textures, phongParam, attribute_mask)
 
 
     def loadMaterialTextures(self,mat):
