@@ -5,7 +5,7 @@ import sys, os
 sys.path.append(os.path.dirname(__file__))
 from renderer.renderer import Light, Window, Renderer
 from camera.camera import Camera
-from utiles.transform import toExtMat, SO3toSE3
+from utiles.transform import toExtMat, SO3toSE3, setTranslation
 import glfw
 import math, random
 import numpy as np
@@ -27,8 +27,8 @@ def draw_box_without_OpenGL(renderer, img, modelMat, ModelExt):
     pixels = np.zeros((8, 2), dtype=int)
     for j, xc in enumerate(tightBox):
         pixels[j] = renderer.camera.project(np.dot(ModelExt, np.dot(modelMat, np.append(xc, [1.0], axis=0))),
-                                            isOpenCV=True,
-                                            invertX=True)
+                                            isOpenCV=False
+                                            )
     cv2.line(img, tuple(pixels[0]), tuple(pixels[1]), color=(255, 255, 255), thickness=1)
     cv2.line(img, tuple(pixels[2]), tuple(pixels[3]), color=(255, 255, 255), thickness=1)
     cv2.line(img, tuple(pixels[4]), tuple(pixels[5]), color=(255, 255, 255), thickness=1)
@@ -63,14 +63,15 @@ def main():
     fShaderTightBoxPath = '/home/yuoto/AR/Renderer/renderer/shader/TightBox.fs'
 
     # Model info
-    # modelPath = '/home/yuoto/AR/estimation/models/obj_02.ply'
-    # modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
-    modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
-    # modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
-    # modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
+    #modelPath = '/home/yuoto/AR/estimation/models/obj_02.ply'
+    modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
+    #modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
+    #modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
+    #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
 
     # === If used ShapeNet model, put .mtl and texture file (.jpg) in the same directory that contains .obj file
-    # modelPath = '/home/yuoto/AR/Renderer/3dmodel/1a4216ac5ffbf1e89c7ce4b816b39bd0.obj'
+    #modelPath = '/home/yuoto/AR/Renderer/3dmodel/cam/7bff4fd4dc53de7496dece3f86cb5dd5.obj'
+    #modelPath = '/home/yuoto/Downloads/mesh_0.obj'
 
 
 
@@ -85,11 +86,12 @@ def main():
     # Camera info
     focal = (540.685, 540.685)
     center = (479.75, 269.75)
-    mcam1 = Camera([SCR_WIDTH, SCR_HEIGHT], focal, center)
+    mcam1 = Camera([SCR_WIDTH, SCR_HEIGHT], focal, center,far=10)
 
     mrenderer = Renderer(mlight1, mcam1, mwindow, modelPath, vShaderPath, fShaderPath, vShaderLampPath, fShaderLampPath,
                          vShaderTightBoxPath, fShaderTightBoxPath)
 
+    #for i in range(2):
     while not glfw.window_should_close(mwindow.window):
         # for i in range(50):
         # inputs
@@ -98,15 +100,16 @@ def main():
         mwindow.clearWindow((0., 0., 0.))
         curT = time.time()
 
-        ceta = math.radians(curT * 50)
+        ceta = math.radians(curT * 300)
 
         lightPos = np.array(
-            [0,0,1])
-        radius = 1
+            [0,1,0])
+        radius = 3
 
-
-        azimuth = np.pi*(np.sin(ceta)+1)
-        elevation = np.pi*(np.sin(ceta/2)+1)/2
+        azimuth = np.radians(ceta)
+        elevation = np.radians(-30)
+        #azimuth = np.pi*(np.sin(ceta))
+        #elevation = np.pi*(np.sin(ceta/2))
 
         # ================================================================================================================
         # Usually, when using outside-in tracking (i.e. concerning about object pose), the camera is always located at the center
@@ -116,10 +119,10 @@ def main():
 
 
         # set light properties (remember to call updateLight())
-        mlight1.setStrength(0.5)
+        mlight1.setStrength(0.3)
         mlight1.setColor(3 * [1.])
-        mlight1.setAttenuation(True)
-        mlight1.setDirectional(True)
+        mlight1.setAttenuation(False)
+        mlight1.setDirectional(False)
         mlight1.setPos(lightPos)
         mrenderer.updateLight()
 
@@ -128,29 +131,41 @@ def main():
         lightTrans = lightPos
 
         # Dataset 3D model scale (m)
-        modelScale = 0.03
+        modelScale = 1
         modelMat = np.diag(3 * [modelScale] + [1.])
 
         # ==============================================================================================
         # When sampling viewpoints, model is always at the origin, and hence object pose is not needed
-        '''
-        modelRot = np.array([math.radians(-90), 0, ceta])
-        modelTrans = np.array([0, 0, depth])
-        ModelExt = toExtMat(modelRot, modelTrans, PoseParameterModel='Eulerzyx', isRadian=True)
-        '''
 
-        ModelExt = mcam1.GetCameraViewMatrix(up=[0, 1, 0], eye=camPos, at=[0, 0, 0], inplane=np.radians(90*np.sin(5*curT)),isRadian=True)
+        #v = mrenderer.get_vertex_buffer(attribute='position', mesh_id=None)
+        #v = v + v*(np.sin(ceta))/10
+        #mrenderer.set_vertex_buffer(pos = v)
+        #ind = mrenderer.get_vertex_buffer(attribute='indices', mesh_id=None)
+        #mrenderer.set_vertex_buffer(indices=ind[::-1])
 
+
+        #modelRot = np.array([math.radians(0), 0, 0])
+        #modelTrans = np.array([0, 0, -1])
+        #ModelExt = toExtMat(modelRot, modelTrans, PoseParameterModel='Eulerzyx', isRadian=True)
+
+
+        ModelExt = mcam1.GetCameraViewMatrix(up=[0, 1, 0], eye=camPos, at=[0, 0, 0], inplane=np.radians(0),isRadian=True)
+        #ModelExt = setTranslation(ModelExt,np.array([random.uniform(-0.05,0.05), random.uniform(-0.05,0.05), random.uniform(-0.05,0.05)-radius]))
 
         LightExt = toExtMat(lightRot, lightTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
 
+        rgb, im_depth = mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=False, drawBox=True, linearDepth=True)
 
-        rgb, im_depth = mrenderer.draw(modelMat, ModelExt, LightExt, drawLamp=True, drawBox=True, linearDepth=False)
+        mwindow.updateWindow()
 
-    # imsave('box.png',rgb)
+        #im = np.zeros((SCR_HEIGHT,SCR_WIDTH))
+        #draw_box_without_OpenGL(mrenderer, im, modelMat, ModelExt)
+        #imsave('cccrgb{:d}.png'.format(i),rgb)
+        #imsave('aa{:d}.png'.format(i), im)
+
+
     # img = imread('box.png')
-
     # img = draw_box_without_OpenGL(mrenderer,img,modelMat,ModelExt)
     # imsave('box.png', img)
 
