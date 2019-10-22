@@ -75,19 +75,18 @@ class Camera():
 
         return OpenGLperspective
 
-    def project(self, point, isOpenCV=False, invertX=True):
+    def project(self, point, isOpenCV=False):
 
         '''
 
-        :param point: (x,y,z,z) in homogeneous coordinate of the camera
-        :param isOpenCV: if rendered with OpenCV intrinsic matrix (if not, then near, far plane is considered)
+        :param point: (x,y,z,w) in homogeneous coordinate of the camera
+        :param isOpenCV: if rendered with OpenCV intrinsic matrix (if not, then near & far plane is considered)
         :param invertX: if invert the x axis during projection
         :return: (x,y) in screen coordinate
         '''
         # Note that the positive X axis of OpenGL(rendered with glsl shader) is different from that of OpenCV, so the project function(usually in OpenCV coordinate) here
         # inverts the axis to result in the same frame as the api render.draw()
-        if invertX:
-            point[0] = -point[0]
+        point[0] = -point[0]
 
         # OpenCV Method
         if isOpenCV:
