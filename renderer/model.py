@@ -39,18 +39,29 @@ class Model:
 
 
 
-    def set_buffer(self,pos, normal, color, tex, mesh_id):
+    def set_buffer(self,pos, normal, color, tex, indices, mesh_id):
         if mesh_id == None:
-            self.meshes[0].set_mesh_buffer( pos, normal, color, tex)
+            if indices.any():
+                self.meshes[0].set_ebo_buffer(indices)
+            else:
+                self.meshes[0].set_mesh_buffer(pos, normal, color, tex)
         else:
-            self.meshes[mesh_id].set_mesh_buffer( pos, normal, color, tex)
+            if indices.any():
+                self.meshes[mesh_id].set_ebo_buffer(indices)
+            else:
+                self.meshes[mesh_id].set_mesh_buffer(pos, normal, color, tex)
 
     def get_buffer_data(self, attribute,mesh_id):
-
         if mesh_id == None:
-            data =  self.meshes[0].get_mesh_buffer(attribute)
+            if attribute == 'indices':
+                data = self.meshes[0].get_ebo_buffer()
+            else:
+                data = self.meshes[0].get_mesh_buffer(attribute)
         else:
-            data = self.meshes[mesh_id].get_mesh_buffer(attribute)
+            if attribute == 'indices':
+                data = self.meshes[mesh_id].get_ebo_buffer()
+            else:
+                data = self.meshes[mesh_id].get_mesh_buffer(attribute)
         return  data
 
     def draw(self,shader):

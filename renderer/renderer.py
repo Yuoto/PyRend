@@ -306,19 +306,19 @@ class Renderer:
         return ((2.0 * n * f) / (f + n - ndc_depth * (f - n)))
 
 
-    def set_vertex_buffer(self, pos=None, normal=None, color=None, tex=None, mesh_id = None):
+    def set_vertex_buffer(self, pos=None, normal=None, color=None, tex=None, indices=[], mesh_id = None):
         """
         :param vertices: the format for N vertices stored in buffer is in a non-interleaving form:
          [v1.pos,.... vN.pos, v1.normal, ... ,vN.normal, v1.color, ...vN.color, v1.tex, ... vN.tex]
          Note that both position & Normal have 3 channels (x,y,z),(Nx,Ny,Nz), color has 4 channels (r,g,b,a), texture has 2 (u,v).
         :return: None
         """
-        self.__3dModel.set_buffer(pos, normal, color, tex, mesh_id)
+        self.__3dModel.set_buffer(pos, normal, color, tex, indices, mesh_id)
 
     def get_vertex_buffer(self, attribute='position', mesh_id = None):
         """
 
-        :param attribute: choose any attribute from position/normal/color/texture coordinate
+        :param attribute: choose any attribute from position/normal/color/textureCoord/indices
         :param mesh_id: what mesh id to be edit
         :return:
         """

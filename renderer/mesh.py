@@ -54,6 +54,7 @@ class Mesh():
 
         self.__setupMesh()
 
+
     def set_mesh_buffer(self, pos, normal, color, tex):
 
         glBindBuffer(GL_ARRAY_BUFFER, self.__VBO)
@@ -120,10 +121,25 @@ class Mesh():
             data.dtype = np.float32
             data = np.reshape(data,(-1,4))
 
-        elif attribute == 'tex' and self.attribute_mask[3]:
+        elif attribute == 'textureCoord' and self.attribute_mask[3]:
             data =  glGetBufferSubData(GL_ARRAY_BUFFER, self.texcoord_offset, self.total_texcoord_nbyte)
             data.dtype = np.float32
             data = np.reshape(data,(-1,2))
+
+        glBindVertexArray(0)
+        return data
+
+    def set_ebo_buffer(self, indices):
+        if len(indices) == len(self.indices):
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.__EBO)
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW)
+        else:
+            print('indices size does not match mesh vertices size')
+
+    def get_ebo_buffer(self):
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.__EBO)
+        data = glGetBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, self.indices.nbytes)
+        data.dtype = np.int32
 
         glBindVertexArray(0)
         return data
@@ -185,26 +201,22 @@ class Mesh():
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, self.position_size, c_void_p(0))
 
         # vertex normals
-        current_attrib = 1
         current_size = self.total_pos_nbyte
         if self.normal.any():
-            glEnableVertexAttribArray(current_attrib)
-            glVertexAttribPointer(current_attrib, 3, GL_FLOAT, GL_FALSE, self.normal_size, c_void_p(current_size))
-            current_attrib += 1
+            glEnableVertexAttribArray(1)
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, self.normal_size, c_void_p(current_size))
             current_size += self.total_normal_nbyte
 
         # vertex color
         if self.color.any():
-            glEnableVertexAttribArray(current_attrib)
-            glVertexAttribPointer(current_attrib, 4, GL_FLOAT, GL_FALSE, self.color_size, c_void_p(current_size))
-            current_attrib += 1
+            glEnableVertexAttribArray(2)
+            glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, self.color_size, c_void_p(current_size))
             current_size += self.total_color_nbyte
 
         # vertex texture coords
         if self.texcoord.any():
-            glEnableVertexAttribArray(current_attrib)
-            glVertexAttribPointer(current_attrib, 2, GL_FLOAT, GL_FALSE, self.texture_size, c_void_p(current_size))
-            current_attrib += 1
+            glEnableVertexAttribArray(3)
+            glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, self.texture_size, c_void_p(current_size))
             current_size += self.total_texcoord_nbyte
 
         glBindVertexArray(0)
