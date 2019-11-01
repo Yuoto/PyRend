@@ -23,6 +23,14 @@ class Camera():
         self.OpenGLperspective = self.__setOpenGLPerspective()
         self.intrinsic = self.__setIntrinsic()
 
+    def setIntrinsic(self, intrin):
+        self.intrinsic = intrin
+        self.focal = (intrin[0][0],intrin[1][1])
+        self.center = (intrin[0][2],intrin[1][2])
+
+        #update OpenGLpersective
+        self.OpenGLperspective = self.__setOpenGLPerspective()
+
     def __setIntrinsic(self):
 
         a = self.focal[0] * self.depthScale
