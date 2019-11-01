@@ -75,6 +75,7 @@ def main():
     # === If used ShapeNet model, put .mtl and texture file (.jpg) in the same directory that contains .obj file
     #modelPath = '/home/yuoto/AR/Renderer/3dmodel/cam/7bff4fd4dc53de7496dece3f86cb5dd5.obj'
     #modelPath = '/home/yuoto/Downloads/mesh_0.obj'
+    #modelPath = 'D:\MultimediaIClab\AR\Rendering\sss.obj'
 
     # Setup Imgui context
     GUI = False
@@ -94,12 +95,12 @@ def main():
     # Camera info
     focal = (540.685, 540.685)
     center = (479.75, 269.75)
-    mcam1 = Camera([SCR_WIDTH, SCR_HEIGHT], focal, center,far=10)
+    mcam1 = Camera([SCR_WIDTH, SCR_HEIGHT], focal, center,far=100)
 
     mrenderer = Renderer(mlight1, mcam1, mwindow, modelPath, vShaderPath, fShaderPath, vShaderLampPath, fShaderLampPath,
                          vShaderTightBoxPath, fShaderTightBoxPath)
 
-    #for i in range(2):
+    #for i in range(200):
     while not glfw.window_should_close(mwindow.window):
         # gui set up
         if GUI:
@@ -114,16 +115,23 @@ def main():
 
         curT = time.time()
 
-        ceta = math.radians(curT * 300)
+        ceta = math.radians(curT * 1000)
 
         lightPos = np.array(
             [0,1,0])
         radius = 1
 
         azimuth = np.radians(ceta)
-        elevation = np.radians(-30)
+        elevation = np.radians(0)
+
         #azimuth = np.pi*(np.sin(ceta))
         #elevation = np.pi*(np.sin(ceta/2))
+
+        light_radius = 2
+        light_ceta =  math.radians(50*curT)
+        lightPos = np.array([light_radius * np.cos(light_ceta) * np.cos(light_ceta), light_radius * np.sin(light_ceta),
+                             light_radius * np.cos(light_ceta) * np.sin(light_ceta)])
+        radius = 1
 
         # ================================================================================================================
         # Usually, when using outside-in tracking (i.e. concerning about object pose), the camera is always located at the center
@@ -142,7 +150,7 @@ def main():
 
         # set model pose & draw
         lightRot = np.array([0, 0, 0])
-        lightTrans = lightPos
+        lightTrans = lightPos + np.array([0, -1.5, -light_radius])
 
         # Dataset 3D model scale (m)
         modelScale = 1
@@ -164,7 +172,7 @@ def main():
 
 
         ModelExt = mcam1.GetCameraViewMatrix(up=[0, 1, 0], eye=camPos, at=[0, 0, 0], inplane=np.radians(0),isRadian=True)
-        #ModelExt = setTranslation(ModelExt,np.array([random.uniform(-0.05,0.05), random.uniform(-0.05,0.05), random.uniform(-0.05,0.05)-radius]))
+        #ModelExt = setTranslation(ModelExt,np.array([0, 0, -radius]))
 
         LightExt = toExtMat(lightRot, lightTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
@@ -194,10 +202,15 @@ def main():
             imgui.text_colored("Eggs", 0.2, 1., 0.)
             imgui.end()
 
+            imgui.show_test_window()
             imgui.render()
             app_window.render(imgui.get_draw_data())
 
         mwindow.updateWindow()
+        #outputframe = gl.glReadPixels(0, 0, mwindow.windowSize[0], mwindow.windowSize[1], gl.GL_RGB, gl.GL_UNSIGNED_BYTE)
+        #outputframe = np.fromstring(outputframe, np.uint8)
+        #outputframe = np.flipud(np.reshape(outputframe, (mwindow.windowSize[1], mwindow.windowSize[0], 3)))
+
         # ===================================================
 
     if GUI:
