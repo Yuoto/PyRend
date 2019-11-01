@@ -20,7 +20,8 @@ class Model:
         self.Ymin = 0
         self.Zmax = 0
         self.Zmin = 0
-        self.directory = directory.rsplit('/', 1)[0]
+        if directory.find('\\'):
+            self.directory = directory.rsplit('\\', 1)[0]
         #import time
         #cur = time.time()
         self.__loadModel(directory)
