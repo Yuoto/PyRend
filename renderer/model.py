@@ -6,7 +6,7 @@ from mesh import Mesh,Texture, PhongParam
 import pyassimp
 import numpy as np
 from ctypes import  c_void_p
-from scipy.misc import imread
+from imageio import imread
 
 
 class Model:
