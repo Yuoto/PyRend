@@ -13,7 +13,6 @@ import glfw
 import math, random
 import numpy as np
 import cv2
-from scipy.misc import imread, imsave
 
 random.seed(0)
 
