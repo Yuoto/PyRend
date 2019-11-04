@@ -2,14 +2,21 @@ from OpenGL.GL import *
 import glfw
 
 class Window:
-    def __init__(self, windowSize, windowName):
+    def __init__(self, windowSize, windowName, monitor=None):
+        """
+
+        :param windowSize: a tuple, size of the window (x,y)
+        :param windowName: name of the window
+        :param monitor: The selected monitor to be displayed. If None, then the primary monitor is used and not in full screen mode. If other monitors specified, full screen mode is used.
+        """
         self.windowSize = windowSize
-        self.window = self.__setUpWindow(self.windowSize, windowName)
-    def __setUpWindow(self,windowSize,name):
+        self.monitor = monitor
+        self.window = self.__setUpWindow(self.windowSize, windowName, self.monitor)
+    def __setUpWindow(self,windowSize,name, monitor):
         # -------- setting window
 
         init_glfw()
-        window = glfw.create_window(windowSize[0], windowSize[1], name, None, None)
+        window = glfw.create_window(windowSize[0], windowSize[1], name, monitor, None)
         if not window:
             glfw.terminate()
             return
@@ -17,6 +24,14 @@ class Window:
 
         return window
 
+    @staticmethod
+    def getMonitors():
+        """
+         Discription: get the current connected monitors
+        :return: an array of monitor pointers
+        """
+        init_glfw()
+        return glfw.get_monitors()
 
     def processInput(self):
         if glfw.get_key(self.window, glfw.KEY_ESCAPE) is glfw.PRESS:
