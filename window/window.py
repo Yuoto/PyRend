@@ -54,9 +54,10 @@ def init_glfw():
         return
 
     # configuring glfw
-    glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR,3)
-    glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
-    glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+    #glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR,3)
+    #glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
+    #glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, GL_TRUE)
+    #glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
     # enable MSAA with 4 sub-samples
     glfw.window_hint(glfw.SAMPLES,4)
