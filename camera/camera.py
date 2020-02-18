@@ -2,7 +2,7 @@ import numpy as np
 
 
 class Camera():
-    def __init__(self, windowSize, focal, center, near=0.1, far=2, depthScale=1):
+    def __init__(self, windowSize, focal, center, near=0.01, far=100, depthScale=1):
         '''
 
         :param windowSize: [x,y] size of the window
@@ -75,35 +75,40 @@ class Camera():
         f = self.far
         n = self.near
 
-        # OpenGL coordinate is in the left-hand system
         OpenGLperspective = np.array([[fx / cx, 0, 0, 0],
                                       [0, fy / cy, 0, 0],
                                       [0, 0, -(f + n) / (f - n), -2 * f * n / (f - n)],
                                       [0, 0, -1, 0]], dtype=np.float32)
 
+
         return OpenGLperspective
 
-    def project(self, point, isOpenCV=False):
+    def project(self, points, isOpenCV=False):
 
         '''
 
-        :param point: (x,y,z,w) in homogeneous coordinate of the camera
+        :param points: 4 x N (x,y,z,w) in homogeneous coordinate of the camera
         :param isOpenCV: if rendered with OpenCV intrinsic matrix (if not, then near & far plane is considered)
         :param invertX: if invert the x axis during projection
         :return: (x,y) in screen coordinate
         '''
-        # Note that the positive X axis of OpenGL(rendered with glsl shader) is different from that of OpenCV, so the project function(usually in OpenCV coordinate) here
-        # inverts the axis to result in the same frame as the api render.draw()
-        point[0] = -point[0]
+
+        convert_xz = np.eye(4)
+        convert_xz[0, 0] = -1
+        convert_xz[1, 1] = 1
+        convert_xz[2, 2] = -1
 
         # OpenCV Method
         if isOpenCV:
-            pixels = np.dot(self.intrinsic, [point[0], point[1], point[2], point[3]])
-            pixels = np.array([pixels[0] / pixels[2], pixels[1] / pixels[2]])
+            pix_pts = np.dot(mcam1.intrinsic, np.dot(convert_xz,points))
+            pix_pts = (pix_pts[:2, :] / pix_pts[2, :] + 1) * 0.5 * np.array(
+                [[self.windowSize[0]], [self.windowSize[1]]])
+            pix_pts = pix_pts.astype(np.int32).T
 
         # OpenGL Method
         else:
-            pixels = np.dot(self.OpenGLperspective, [point[0], point[1], point[2], point[3]])
-            pixels = np.array([(pixels[0] / point[2] + 1) * 0.5 * self.windowSize[0],
-                               (pixels[1] / point[2] + 1) * 0.5 * self.windowSize[1]])
-        return pixels
+            pix_pts = np.dot(self.OpenGLperspective, np.dot(convert_xz,points))
+            pix_pts = (pix_pts[:2, :] / pix_pts[2, :] + 1) * 0.5 * np.array(
+                [[self.windowSize[0]], [self.windowSize[1]]])
+            pix_pts = pix_pts.astype(np.int32).T
+        return pix_pts
