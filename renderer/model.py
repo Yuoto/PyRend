@@ -85,6 +85,18 @@ class Model:
         HasText = mesh.texturecoords.any()
         HasFace = mesh.faces.any()
         attribute_mask = [HasPos, HasNormal, HasColor, HasText]
+        if self.Xmax < mesh.vertices[:, 0].max():
+            self.Xmax = mesh.vertices[:, 0].max()
+        if self.Xmin > mesh.vertices[:, 0].min():
+            self.Xmin = mesh.vertices[:, 0].min()
+        if self.Ymax < mesh.vertices[:, 1].max():
+            self.Ymax = mesh.vertices[:, 1].max()
+        if self.Ymin > mesh.vertices[:, 1].min():
+            self.Ymin = mesh.vertices[:, 1].min()
+        if self.Zmax < mesh.vertices[:, 2].max():
+            self.Zmax = mesh.vertices[:, 2].max()
+        if self.Zmin > mesh.vertices[:, 2].min():
+            self.Zmin = mesh.vertices[:, 2].min()
         # for the current mesh, process all the attribut
 
         position = np.reshape(mesh.vertices, -1)
