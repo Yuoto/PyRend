@@ -302,12 +302,14 @@ class Renderer:
 
         imageBuf = glReadPixels(0, 0, self.window.windowSize[0], self.window.windowSize[1], GL_RGB, GL_UNSIGNED_BYTE)
         im = np.fromstring(imageBuf, np.uint8)
+
+        #This is because of the y axis of the image coordinate system and that of the opencv image layout is inverted
         rgb = np.flipud(np.reshape(im, (self.window.windowSize[1], self.window.windowSize[0], 3)))
 
         # Since the value from depth buffer contains non-linear depth ~[0,1], background depth will be cast to 1.
         mask = depth < 1
         if linearDepth:
-            depth = mask*self.__nonLinearDepth2Linear(depth)
+            depth = -1*mask*self.__nonLinearDepth2Linear(depth)
         else:
             depth = mask*depth
 
