@@ -2,6 +2,7 @@ import numpy as np
 
 
 
+
 # Tight bound,
 def computeBoundingBox(cam, modelMat, pose, tightBox):
     xMin = cam.windowSize[0]

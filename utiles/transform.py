@@ -2,6 +2,25 @@ import numpy as np
 import math
 from enum import Enum
 
+'''
+class Pose():
+    def __init__(self):
+        self.se3Matrix =
+'''
+
+
+
+
+def toHomo(vectors):
+    """
+
+    :param vectors:  N x 3 vectors
+    :return:  4 x N vectors
+    """
+
+    return np.concatenate((vectors, np.ones((vectors.shape[0], 1))), axis=1).T
+
+
 #TODO: Construct a Pose class
 def toExtMat(rotation, translation=None, PoseParameterModel='Eulerzyx', isRadian=True):
     '''
