@@ -16,6 +16,8 @@ struct Material{
   vec3 Kd;  //diffuse coefficient
   vec3 Ka;  //ambient coefficient
   vec3 Ks;  //specular coefficient
+  vec3 Ke;
+  float alpha;
   float Ns;  //shininess
 };
 
@@ -41,27 +43,31 @@ uniform bool hasNormal, hasColor, hasTexture;
 
 void main()
 {    
-	float alhpa = clamp(Color.w,0.0,1.0);
+	//float alhpa = clamp(Color.w,0.0,1.0);
 	vec3 color = clamp(Color.xyz,0.0,1.0);
 	vec3 ambient;
 	vec3 diffuse;
 	vec3 specular;
+	vec3 emissive;
 
 	//Considering Texture
 	
 	if (hasTexture){
-		ambient = light.strength*light.color*texture(material.map_Ka,TexCoords).rgb*alhpa;
-		diffuse = light.strength*light.color*texture(material.map_Kd,TexCoords).rgb*alhpa;
-		specular = light.strength*light.color*texture(material.map_Ks,TexCoords).rgb*alhpa;
+		ambient = light.strength*light.color*material.Ka;
+		diffuse = light.strength*light.color*texture(material.map_Kd,TexCoords).rgb;
+		specular = light.strength*light.color*material.Ks;
+		emissive = light.strength*light.color*material.Ke;
 
 	} else if(hasColor){
-		ambient = light.strength*light.color*material.Ka*color*alhpa;
-		diffuse = light.strength*light.color*material.Kd*color*alhpa;
-		specular = light.strength*light.color*material.Ks*color*alhpa;
+		ambient = light.strength*light.color*material.Ka*color;
+		diffuse = light.strength*light.color*material.Kd*color;
+		specular = light.strength*light.color*material.Ks*color;
+		emissive = light.strength*light.color*material.Ke;
 	}else{
-			ambient = light.strength*light.color*material.Ka*alhpa;
-		diffuse = light.strength*light.color*material.Kd*alhpa;
-		specular = light.strength*light.color*material.Ks*alhpa;
+			ambient = light.strength*light.color*material.Ka;
+		diffuse = light.strength*light.color*material.Kd;
+		specular = light.strength*light.color*material.Ks;
+		emissive = light.strength*light.color*material.Ke;
 	}
 
 	//considering direction(update diffuse and specular coefficient)
@@ -90,6 +96,6 @@ void main()
 		specular *= attenuation;
 	}
 
-	FragColor= vec4(ambient+diffuse+specular,1.0);
+	FragColor= vec4(ambient+diffuse+specular+emissive,material.alpha);
 
 }

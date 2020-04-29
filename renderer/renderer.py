@@ -72,7 +72,7 @@ class Renderer:
         self.__modelShader = Shader(vShaderPath,fShaderPath)
         self.__lampShader = Shader(vShaderLampPath, fShaderLampPath)
         self.__tightBoxShader = Shader(vShaderTightBoxPath, fShaderTightBoxPath)
-        self.__3dModel = Model(modelPath)
+        self.__3dModel = Model(modelPath,window)
         self.__lampVertices = np.array([-0.5, -0.5, -0.5, 0, 0, -1, 0, 0,
                       0.5, -0.5, -0.5, 0, 0, -1, 1, 0,
                       0.5, 0.5, -0.5, 0, 0, -1, 1, 1,
@@ -124,18 +124,18 @@ class Renderer:
     def setUpBlending(self, FaceCull=False,Blend=True,DepthFunc='GL_LEQUAL',DepthTest=True,MultiSample=True):
         # Enable depth test and blend
         if Blend:
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glEnable(GL_BLEND)
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
 
         # Due to some depth problem for models in ShapeNet
         if DepthTest:
-
+            glEnable(GL_DEPTH_TEST)
             if DepthFunc == 'GL_LEQUAL':
                 glDepthFunc(GL_LEQUAL)
             elif DepthFunc == 'GL_LESS':
                 glDepthFunc(GL_LESS)
 
-            glEnable(GL_DEPTH_TEST)
 
 
         # Enable MSAA
@@ -272,7 +272,7 @@ class Renderer:
         """
         return self.__3dModel.get_buffer_data(attribute,mesh_id)
 
-    def draw(self, model, modelExtrinsic,lightExtrinsic,drawLamp=True, drawBox=False, color=[255,255,255], linearDepth=False):
+    def draw(self, model, modelExtrinsic,lightExtrinsic,drawLamp=True, drawBox=False, meshBymesh=False, color=[255,255,255], linearDepth=False):
         """
 
         :param model: model matrix (model space transformation matrix)
@@ -286,7 +286,7 @@ class Renderer:
         """
 
         self.__setModelPose(model,modelExtrinsic)
-        self.__3dModel.draw(self.__modelShader)
+        self.__3dModel.draw(self.__modelShader, meshBymesh)
         if drawLamp:
             self.__drawLamp(lightExtrinsic)
 

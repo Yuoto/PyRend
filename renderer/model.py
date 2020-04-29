@@ -11,7 +11,7 @@ from imageio import imread
 
 class Model:
 
-    def __init__(self, directory):
+    def __init__(self, path,window):
         self.meshes = []
         self.textures_loaded = []
         self.Xmax = 0
@@ -20,11 +20,14 @@ class Model:
         self.Ymin = 0
         self.Zmax = 0
         self.Zmin = 0
-        if directory.find('\\'):
-            self.directory = directory.rsplit('\\', 1)[0]
+        self.window=window
+        if path.find('\\'):
+            self.path = path.rsplit('\\', 1)[0]
+        self.directory = self.path.rsplit('/', 1)[0]
         #import time
         #cur = time.time()
-        self.__loadModel(directory)
+        self.__loadModel(path)
+        self.sortMeshes()
         #print("time elasped = {:1.4f}".format(time.time()-cur))
 
     def __get_directory(self):
@@ -65,9 +68,26 @@ class Model:
                 data = self.meshes[mesh_id].get_mesh_buffer(attribute)
         return  data
 
-    def draw(self,shader):
+    def sortMeshes(self):
+        """
+        Due to the need of order dependent transparency
+        1. Draw all opaque objects first.
+        2. Sort all the transparent objects by their depth (far -> near).
+        3. Draw all the transparent objects in sorted order.
+        """
+        opacMeshes = [m for m in self.meshes if m.phongParam.alpha == 1.0 ]
+        transparMeshes = [m for m in self.meshes if m.phongParam.alpha != 1.0]
+
+        sorted(transparMeshes,key = lambda m: m.center[2], reverse=True)
+        self.meshes = opacMeshes + transparMeshes
+
+
+    def draw(self,shader, meshBymesh=False):
         for mesh in self.meshes:
             mesh.draw(shader)
+            if meshBymesh:
+                self.window.updateWindow()
+
 
     def processNode(self,node,scene):
         for mesh in node.meshes:
@@ -83,7 +103,7 @@ class Model:
         HasNormal = mesh.normals.any()
         HasColor = mesh.colors.any()
         HasText = mesh.texturecoords.any()
-        HasFace = mesh.faces.any()
+        HasFace = True
         attribute_mask = [HasPos, HasNormal, HasColor, HasText]
         if self.Xmax < mesh.vertices[:, 0].max():
             self.Xmax = mesh.vertices[:, 0].max()
@@ -99,6 +119,7 @@ class Model:
             self.Zmin = mesh.vertices[:, 2].min()
         # for the current mesh, process all the attribut
 
+        center = np.mean(mesh.vertices,axis=0)
         position = np.reshape(mesh.vertices, -1)
         if HasNormal:
             normal = np.reshape(mesh.normals, -1)
@@ -113,7 +134,8 @@ class Model:
         else:
             texcoord = np.array([])
         if HasFace:
-            indices = np.reshape(mesh.faces,-1).astype(np.uint32)
+            indices = np.array([item for sublist in mesh.faces for item in sublist]).astype(np.uint32)
+            #indices = np.reshape(mesh.faces,-1).astype(np.uint32)
         else:
             indices = np.array([])
 
@@ -126,7 +148,7 @@ class Model:
             textures.extend(Maps)
 
 
-        return Mesh(position, normal, color, texcoord, indices, textures, phongParam, attribute_mask)
+        return Mesh(position, center, normal, color, texcoord, indices, textures, phongParam, attribute_mask)
 
 
     def loadMaterialTextures(self,mat):
@@ -150,6 +172,10 @@ class Model:
                 phongParam.Ks = value
             elif key == 'shininess':
                 phongParam.Ns = value
+            elif key == 'emissive':
+                phongParam.emissive = value
+            elif key == 'opacity':
+                phongParam.alpha = value
             # for maps path
             elif key == 'file':
                 if value.find('_ddn') > 0:
@@ -169,12 +195,15 @@ class Model:
 
         for key,mapPath in paths.items():
             if mapPath is not '':
-                texture = Texture()
-                texture.id = self.TextureFromFile(mapPath)
-                texture.type = key
-                texture.path =os.path.join(self.directory,mapPath)
-                if texture.id is not -1:
-                    textures.append(texture)
+                #check if texture is already loaded
+                if mapPath not in self.textures_loaded:
+                    texture = Texture()
+                    texture.id = self.TextureFromFile(mapPath)
+                    texture.type = key
+                    texture.path =os.path.join(self.directory,mapPath)
+                    if texture.id is not -1:
+                        textures.append(texture)
+                        self.textures_loaded.append(mapPath)
 
         return textures, phongParam
 

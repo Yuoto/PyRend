@@ -5,7 +5,7 @@ import numpy as np
 
 
 class PhongParam:
-    def __init__(self, Ka=3 * [1.], Kd=3 * [1.], Ks=3 * [1.], Ns=1.0):
+    def __init__(self, Ka=3 * [1.], Kd=3 * [1.], Ks=3 * [1.], Ns=1.0, emissive=3 * [0.], alpha=1.0):
         """
 
         :param Ka: ambient coefficient, with default value [1.0, 1.0, 1.0]
@@ -17,7 +17,10 @@ class PhongParam:
         self.Ka = Ka
         self.Kd = Kd
         self.Ks = Ks
+        self.Ke = emissive
         self.Ns = Ns
+        self.alpha = alpha
+
 
 
 class Texture:
@@ -34,13 +37,14 @@ class Texture:
 
 
 class Mesh():
-    def __init__(self, position, normal, color, texcoord, indices, textures, phongParam, attribute_mask):
+    def __init__(self, position, center, normal, color, texcoord, indices, textures, phongParam, attribute_mask):
 
         # self.vertices = np.array(vertices, dtype=np.float32)
         # self.indices = np.array(indices,dtype=np.uint32)
         self.textures = textures
         self.phongParam = phongParam
         self.position = position
+        self.center = center
         self.normal = normal
         self.color = color
         self.texcoord = texcoord
@@ -230,7 +234,10 @@ class Mesh():
         shader.setVec3('material.Ka', self.phongParam.Ka)
         shader.setVec3('material.Kd', self.phongParam.Kd)
         shader.setVec3('material.Ks', self.phongParam.Ks)
+        shader.setVec3('material.Ke', self.phongParam.Ke)
         shader.setFloat('material.Ns', self.phongParam.Ns)
+        shader.setFloat('material.alpha', self.phongParam.alpha)
+
 
         # Set to default color if no color is presented
         if self.color.any():
@@ -262,7 +269,7 @@ class Mesh():
 
                 else:
                     shader.setInt('material.map_Kd', i)
-                    shader.setInt('material.map_Ka', i)
+                    #shader.setInt('material.map_Ka', i)
                     # shader.setInt('material.map_Ks', i)
                     glActiveTexture(GL_TEXTURE0 + i)
                     glBindTexture(GL_TEXTURE_2D, tex.id)
