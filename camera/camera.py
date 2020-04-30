@@ -69,50 +69,26 @@ class Camera():
         return np.dot(R_inv, T_inv)
 
     def __setOpenGLPerspective(self):
-
         fx, fy = self.focal
         cx, cy = self.center
         f = self.far
         n = self.near
 
-        r = self.windowSize[0]/2
-        l = -self.windowSize[0]/2
-        t = self.windowSize[1]/2
-        b = -self.windowSize[1]/2
-
-        # ==== 1.Traditional openGL perspective (failed)
-
-        glPerspective = np.array([[ 2*n/(r-l), 0, (r+l)/(r-l), 0],
-                                      [0, 2*n/(t-b), (t+b)/(t-b), 0],
-                                      [0, 0, -(f + n)/(f-n),  -2*f * n /(f-n)],
-                                      [0, 0, -1, 0]], dtype=np.float32)
-        glNDC = np.array([[2/ (r - l), 0, 0, -(r+l)/(r-l)],
-                          [0, 2 / (t - b), 0, -(t+b)/(t-b)],
-                          [0, 0, -2/ (f - n), -(f+n) / (f - n)],
-                          [0, 0, 0, 1]], dtype=np.float32)
-        OpenGLperspective =  glNDC.dot(glPerspective)
-        print(OpenGLperspective)
-
-
-        # ==== 2.strange but worked method
-
+        # ==== 1. Ideal symmetry camera
+        # Reference: http://kgeorge.github.io/2014/03/08/calculating-opengl-perspective-matrix-from-opencv-intrinsic-matrix
+        '''
         OpenGLperspective = np.array([[fx / cx, 0, 0, 0],
                                       [0, fy / cy, 0, 0],
                                       [0, 0, -(f + n) / (f - n), -2 * f * n / (f - n)],
                                       [0, 0, -1, 0]], dtype=np.float32)
+             '''
 
-        #print(OpenGLperspective)
-
-
-        #==== 3.GLM method (worked)
-        '''
-        import glm
-        fov = glm.radians(90)
-        OpenGLperspective = np.array(glm.perspective(fov,self.windowSize[0]/self.windowSize[1],n,f)).T
-        print(OpenGLperspective)
-        '''
-
-
+        # ==== 2. asymmetry camera (with OpenCV calibrated parameters)
+        # https://strawlab.org/2011/11/05/augmented-reality-with-OpenGL/
+        OpenGLperspective = np.array([[2 * fx / self.windowSize[0], 0, 1 - 2 * cx / self.windowSize[0], 0],
+                                      [0, 2 * fy / self.windowSize[1], 2 * cy / self.windowSize[1] - 1, 0],
+                                      [0, 0, -(f + n) / (f - n), -2 * f * n / (f - n)],
+                                      [0, 0, -1, 0]], dtype=np.float32)
 
         return OpenGLperspective
 
