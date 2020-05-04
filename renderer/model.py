@@ -103,7 +103,7 @@ class Model:
         HasNormal = mesh.normals.any()
         HasColor = mesh.colors.any()
         HasText = mesh.texturecoords.any()
-        HasFace = True
+        HasFace = mesh.faces != []
         attribute_mask = [HasPos, HasNormal, HasColor, HasText]
         if self.Xmax < mesh.vertices[:, 0].max():
             self.Xmax = mesh.vertices[:, 0].max()

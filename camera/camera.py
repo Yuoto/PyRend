@@ -22,6 +22,11 @@ class Camera():
         self.depthScale = depthScale
         self.OpenGLperspective = self.__setOpenGLPerspective()
         self.intrinsic = self.__setIntrinsic()
+        self.distCoeff = None
+
+    def setDistCoeff(self, distCoeff):
+        self.distCoeff = distCoeff
+
 
     def setIntrinsic(self, intrin):
         self.intrinsic = intrin
