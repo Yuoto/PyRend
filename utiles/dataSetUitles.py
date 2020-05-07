@@ -5,9 +5,9 @@ from utiles.transform import toHomo
 def checkBoundary(cam, xL, yL, BBwidth, BBheight):
     xL = xL if xL > 0 else 0
     yL = yL if yL > 0 else 0
-    BBwidth = xL + BBwidth if xL + BBwidth < cam.windowSize[0] else cam.windowSize[0] - xL - 1
-    BBheight = yL + BBheight if yL + BBheight < cam.windowSize[1] else cam.windowSize[1] - yL - 1
-
+    BBwidth = BBwidth if xL + BBwidth < cam.windowSize[0] else cam.windowSize[0] - xL - 1
+    BBheight = BBheight if yL + BBheight < cam.windowSize[1] else cam.windowSize[1] - yL - 1
+    #print(np.array([xL, yL, BBwidth, BBheight]))
     return np.array([xL, yL, BBwidth, BBheight], dtype=np.int32)
 
 
@@ -24,7 +24,7 @@ def computeBoundingBox(cam, modelMat, extMat, tightBox, scale=(2, 2)):
     """
     camCoor = np.dot(extMat, np.dot(modelMat, toHomo(tightBox)))
     pixels = cam.project(camCoor.T)
-    pixels_sorted = np.sort(pixels)
+    pixels_sorted = np.sort(pixels,axis=0)
     xMin, yMin = pixels_sorted[0]
     xMax, yMax = pixels_sorted[-1]
 

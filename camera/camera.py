@@ -86,8 +86,8 @@ class Camera():
                                       [0, fy / cy, 0, 0],
                                       [0, 0, -(f + n) / (f - n), -2 * f * n / (f - n)],
                                       [0, 0, -1, 0]], dtype=np.float32)
-             '''
 
+            '''
         # ==== 2. asymmetry camera (with OpenCV calibrated parameters)
         # https://strawlab.org/2011/11/05/augmented-reality-with-OpenGL/
         OpenGLperspective = np.array([[2 * fx / self.windowSize[0], 0, 1 - 2 * cx / self.windowSize[0], 0],
