@@ -1,14 +1,224 @@
 import numpy as np
 import math
-from enum import Enum
+import cv2
 
-'''
 class Pose():
-    def __init__(self):
-        self.se3Matrix =
-'''
+    def __init__(self,rvec, tvec, PoseParamModel='axis', isRadian=True):
+        self.PoseParamModel = PoseParamModel
+        self.isRadian = isRadian
+        self.rvec = rvec
+        self.tvec = tvec
+        self.SE3 = self.toSE3()
+        self.__convertYZ()
+
+    def update(self,rvec, tvec, PoseParamModel=None):
+        if PoseParamModel != None:
+            self.PoseParamModel = PoseParamModel
+        self.rvec = rvec
+        self.tvec = tvec
+        self.SE3 = self.toSE3()
+        self.se3 = self.__SE3Tose3()
+        self.SE3 = self.__axixToSE3(hasUvec=True)
+        self.__convertYZ()
 
 
+    def toSE3(self, hasUvec=False):
+        # Euler Angle
+        if self.PoseParamModel.find('euler') >= 0:
+           return self.__eulerToSE3()
+        # Axis Angle
+        elif self.PoseParamModel == 'axis':
+            return self.__axixToSE3(hasUvec)
+        # Quaternion
+        elif self.PoseParamModel == 'quaternion':
+            raise NotImplementedError
+
+    '''
+    def toSO3(self):
+        if self.PoseParamModel.find('euler') >= 0:
+           return self.__eulerToSO3()
+        # Axis Angle
+        elif self.PoseParamModel == 'axis':
+            return self.__axixToSO3()
+        # Quaternion
+        elif self.PoseParamModel == 'quaternion':
+            raise NotImplementedError
+    
+    def __eulerToSO3(self):
+        # Check if the angle is converted to radians
+        rvec = self.rvec if self.isRadian else np.radians(self.rvec)
+        sx, sy, sz = np.sin(rvec)
+        cx, cy, cz = np.cos(rvec)
+
+        Rx = np.array([[1, 0, 0, 0],
+                       [0, cx, -sx, 0],
+                       [0, sx, cx, 0],
+                       [0, 0, 0, 1]])
+        Ry = np.array([[cy, 0, sy, 0],
+                       [0, 1, 0, 0],
+                       [-sy, 0, cy, 0],
+                       [0, 0, 0, 1]])
+        Rz = np.array([[cz, -sz, 0, 0],
+                       [sz, cz, 0, 0],
+                       [0, 0, 1, 0],
+                       [0, 0, 0, 1]])
+        # Choose one order of rotation (Euler_3rd_2nd_1st)
+
+        if poseParm == 'eulerxyz':
+            mat = np.dot(np.dot(Rz, Ry), Rx)
+        elif poseParm == 'eulerxzy':
+            mat = np.dot(np.dot(Ry, Rz), Rx)
+        elif poseParm == 'euleryxz':
+            mat = np.dot(np.dot(Rz, Rx), Ry)
+        elif poseParm == 'euleryzx':
+            mat = np.dot(np.dot(Rx, Rz), Ry)
+        elif poseParm == 'eulerzxy':
+            mat = np.dot(np.dot(Ry, Rx), Rz)
+        elif poseParm == 'eulerzyx':
+            mat = np.dot(np.dot(Rx, Ry), Rz)
+        self.SO3 = mat
+        return mat
+    '''
+    def __eulerToSE3(self):
+        mat = np.eye(4)
+        mat[:3,:3] = self.SO3
+        # set translation
+        mat[0:3,3] = self.tvec
+
+        return mat
+
+    '''
+    def __axixToSO3(self):
+        self.SO3 = self.SE3[:3,:3]
+        return self.SO3
+    '''
+    def __axixToSE3(self, hasUvec=False):
+        """
+                Calculate SE(3) from a given axis angle vector se(3) = (uvec, rvec)^T
+        :return:  SE(3) matrix
+        """
+        # Check if the angle is converted to radians
+        rvec = self.rvec if self.isRadian else np.radians(self.rvec)
+
+        #1. OpenCV method
+        #SO3 = cv2.Rodrigues(np.array(rvec))[0]
+
+        #2.  R = cos(theta) * I + (1 - cos(theta)) * r * rT + sin(theta) * [r_x]
+        theta = np.linalg.norm(rvec)
+        itheta = 1. / theta if theta else 0.
+        r = rvec * itheta
+        r_x = self.__skew(r)
+        c = np.cos(theta)
+        s = np.sin(theta)
+        rrt = np.array([[r[0] * r[0], r[1] * r[0], r[2] * r[0]],
+                        [r[0] * r[1], r[1] * r[1], r[2] * r[1]],
+                        [r[0] * r[2], r[1] * r[2], r[2] * r[2]]])
+        self.SO3 = c * np.eye(3) + (1 - c) * rrt + s * r_x
+
+        if hasUvec:
+            sinc = np.sin(theta)/theta if theta else 1.
+            cosc = (1-np.cos(theta))/theta if theta else 0.
+            #J = sin(theta)/theta I + (1-sin(theta)/theta)rrT + (1-cos(theta))/theta * [r_x]
+            J = sinc* np.eye(3) + (1-sinc)*rrt + cosc*r_x
+            self.tvec = J.dot(self.uvec)
+
+        mat = np.eye(4)
+        mat[:3, :3] = self.SO3
+        mat[:3, 3] = self.tvec
+
+        return mat
+    '''
+    def SO3toParam(self):
+        if self.PoseParamModel.find('euler') >= 0:
+            return self.__SO3ToEuler()
+            # Axis Angle
+        elif self.PoseParamModel == 'axis':
+            return self.__SO3Toso3()
+            # Quaternion
+        elif self.PoseParamModel == 'quaternion':
+            raise NotImplementedError
+        '''
+    def SE3toParam(self):
+        if self.PoseParamModel.find('euler') >= 0:
+            return self.__SE3ToEuler()
+            # Axis Angle
+        elif self.PoseParamModel == 'axis':
+            return self.__SE3Tose3()
+            # Quaternion
+        elif self.PoseParamModel == 'quaternion':
+            raise NotImplementedError
+    '''
+    def __SO3ToEuler(self):
+        if self.PoseParamModel  == 'eulerzyx':
+            r02 = self.SO3[0][2]
+            if r02 < 1:
+                if r02 > -1:
+                    thetaY = math.asin(r02)
+                    thetaX = math.atan2(-self.SO3[1][2], self.SO3[2][2])
+                    thetaZ = math.atan2(-self.SO3[0][1], self.SO3[0][0])
+                else:  # r02 = -1
+                    thetaY = -90
+                    thetaX = -math.atan2(self.SO3[1][0], self.SO3[1][1])
+                    thetaZ = 0
+            else:  # r02 = 1
+                thetaY = 90
+                thetaX = math.atan2(self.SO3[1][0], self.SO3[1][1])
+                thetaZ = 0
+        else:
+            print('Decomposing euler angle to format other than zyx is currently not implemented!')
+            raise NotImplementedError
+
+        return np.array([thetaX, thetaY, thetaZ])
+   
+    def __SE3ToEuler(self):
+        rvec = self.__SO3ToEuler()
+        tvec = self.SE3[:,3]
+        return np.hstack((rvec, tvec))
+     '''
+    '''
+    def __SO3Toso3(self):
+        ceta = arccos(np.trace(self.SO3) - 1) / 2
+        lnR = 0.5*ceta/np.sin(ceta)*(self.SO3-self.SO3.T)
+        self.so3 = np.array([lnR[1,2], lnR[2,0], lnR[0,1]])
+        return self.so3
+    '''
+    def __skew(self, x):
+        return np.array([[0, -x[2], x[1]],
+                     [x[2], 0, -x[0]],
+                     [-x[1], x[0], 0]])
+
+    def __SE3Tose3(self):
+        """
+            Calculate se(3) = [ rvec, uvec] given SE(3)
+        :return:
+        """
+        theta = np.arccos((np.trace(self.SO3) - 1) / 2)
+        sincInv = theta/(2*np.sin(theta)) if theta else 0.5
+        lnR = sincInv * (self.SO3 - self.SO3.T)
+        self.so3 = np.array([lnR[2, 1], lnR[0, 2], lnR[1, 0]])
+
+        itheta = 1. / theta if theta else 0.
+        r = self.so3 * itheta
+        r_x = self.__skew(r)
+        rrt = np.array([[r[0] * r[0], r[1] * r[0], r[2] * r[0]],
+                        [r[0] * r[1], r[1] * r[1], r[2] * r[1]],
+                        [r[0] * r[2], r[1] * r[2], r[2] * r[2]]])
+
+        # J_inv =(theta/2)cot(theta/2) I + (1-(theta/2)cot(theta/2))r*rT - (theta/2)[r_x]
+        thetaHalf = theta / 2
+        cotthetaH = thetaHalf / np.tan(thetaHalf) if theta else 1.
+        J_inv = cotthetaH * np.eye(3) + (1 - cotthetaH) * rrt - thetaHalf * r_x
+        self.uvec = np.dot(J_inv, self.tvec)
+        self.se3 = np.hstack((self.so3, self.uvec))
+
+        return self.se3
+
+    def __convertYZ(self):
+        convert_yz = np.eye(4)
+        convert_yz[1, 1] = -1
+        convert_yz[2, 2] = -1
+        self.SO3 = convert_yz[:3,:3].dot(self.SO3)
+        self.SE3 = convert_yz.dot(self.SE3)
 
 
 def toHomo(vectors):
@@ -21,98 +231,15 @@ def toHomo(vectors):
     return np.concatenate((vectors, np.ones((vectors.shape[0], 1))), axis=1).T
 
 
-#TODO: Construct a Pose class
-def toExtMat(rotation, translation=None, PoseParameterModel='Eulerzyx', isRadian=True):
-    '''
 
-    :param rotation:   rotation parameters in Euler angle [elevataion(x), azimuth(y), in-plane(z)]
-                    or  axis vector that is to be rotate around in Axis angle [wx, wy, wz] (L1 norm of this vector represents ceta)
-    :param translation: translation parameters [tx, ty, tz]
-    :param PoseParameterModel: Either "Euler angle", "Axis angle" or "Quaternion"
-    :param isRadian: if the rotation vector is in radian
-    :return: Extrinsic matrix (SE3)
-    '''
-
-    # Euler Angle
-    if PoseParameterModel.find('Euler') >= 0:
-        mat = __toRotationMatrix(rot=rotation, trans=translation, poseParm=PoseParameterModel, isRadian=isRadian)
-    # Axis Angle
-    elif PoseParameterModel == 'AxisAngle':
-        mat = Rodrigues(w=rotation, u=translation)
-    # Quaternion
-    elif PoseParameterModel == 'Quaternion':
-        raise NotImplementedError
-
-    return mat
-
-
-def __toRotationMatrix(rot, trans, poseParm, isRadian):
-    """
-    Given rotation vector rot and translation vector trans, generate a SE3 matrix
-    :param rot: rotation parameters in Euler angle [elevataion(x), azimuth(y), in-plane(z)]
-    :param trans:  translation parameters [tx, ty, tz]
-    :param poseParm: Either poseParm "Eulerxyz", "Eulerxzy", "Euleryxz", "Euleryzx", "Eulerzxy", "Eulerzyx"
-    :param isRadian: if the rotation vector is in radian
-    :return: Extrinsic matrix (SE3)
-    """
-    if not isRadian:
-        x = math.radians(rot[0])
-        y = math.radians(rot[1])
-        z = math.radians(rot[2])
-    else:
-        x = rot[0]
-        y = rot[1]
-        z = rot[2]
-
-    sx = math.sin(x)
-    cx = math.cos(x)
-    sy = math.sin(y)
-    cy = math.cos(y)
-    sz = math.sin(z)
-    cz = math.cos(z)
-
-    Rx = np.array([[1, 0, 0, 0],
-                   [0, cx, -sx, 0],
-                   [0, sx, cx, 0],
-                   [0, 0, 0, 1]])
-    Ry = np.array([[cy, 0, sy, 0],
-                   [0, 1, 0, 0],
-                   [-sy, 0, cy, 0],
-                   [0, 0, 0, 1]])
-    Rz = np.array([[cz, -sz, 0, 0],
-                   [sz, cz, 0, 0],
-                   [0, 0, 1, 0],
-                   [0, 0, 0, 1]])
-    # Choose one order of rotation (Euler_3rd_2nd_1st)
-    if poseParm == 'Eulerxyz':
-        mat = np.dot(np.dot(Rz, Ry), Rx)
-    elif poseParm == 'Eulerxzy':
-        mat = np.dot(np.dot(Ry, Rz), Rx)
-    elif poseParm == 'Euleryxz':
-        mat = np.dot(np.dot(Rz, Rx), Ry)
-    elif poseParm == 'Euleryzx':
-        mat = np.dot(np.dot(Rx, Rz), Ry)
-    elif poseParm == 'Eulerzxy':
-        mat = np.dot(np.dot(Ry, Rx), Rz)
-    elif poseParm == 'Eulerzyx':
-        mat = np.dot(np.dot(Rx, Ry), Rz)
-
-    # set translation
-    if trans is not None:
-        mat[0][3] = trans[0]
-        mat[1][3] = trans[1]
-        mat[2][3] = trans[2]
-
-    return mat
-
-
+'''
 def Rodrigues(w, u):
-    '''
+    
     Given axis vector w and translation vector u, generate a SE3 matrix
     :param w:  generator coefficients of Lie algebra [wx, wy, wz]
     :param u: translation vector [tx, ty, tz]
     :return: SE3 matrix (Lie group)
-    '''
+
     if not np.any(u):
         u = np.zeros((3, 1))
     Wx = np.array([[0, -w[2], w[1]],
@@ -132,109 +259,9 @@ def Rodrigues(w, u):
                     [np.zeros(3), 1]])
 
     return mat
+'''
 
 
-def se3toSE3(se3):
-    """
-     Transform se3 (Lie algebra) to SE3 (Lie group) using exponential map (Rodrigues formula)
-    :param se3: se3 matrix (Lie algebra)
-    :return: SE3: SE3 matrix (Lie group)
-    """
-    w = np.array([se3[2][1], se3[0][2], se3[1][0]])
-    u = np.array([se3[0][3], se3[1][3], se3[2][3]])
-
-    # perform exponential map using Rodrigues formula
-    return Rodrigues(w, u)
-
-
-def SE3tose3(SE3):
-    """
-    Transform SE3 (Lie group) to se3 (Lie algebra) using inverse exponential map
-    :param SE3:
-    :return: se3 matrix (Lie algebra)
-    """
-    t = np.reshape(SE3[0:3,3],(3,1))  # to 3x1
-    R = SE3[0:3,0:3]
-    ceta = math.acos((np.trace(R) - 1) / 2)
-    ceta_sq = ceta * ceta
-    A = math.sin(ceta) / ceta
-    B = (1 - math.cos(ceta)) / ceta_sq
-
-    # inverse exponential map of R = exp(Wx):
-    #   Wx = ln(R); R = exp(Wx)
-    Wx = (ceta / (2 * math.sin(ceta))) * (R - np.transpose(R))
-
-    V_inv = np.eye(3) - 0.5 * Wx + (1 / ceta_sq) * (1 - A / (2 * B)) * np.dot(Wx, Wx)
-    u = np.dot(V_inv, t)  # 3x1
-
-    # to se3 matrix (Lie algebra), recall that se3[3][3] is zero
-    mat = np.block([[Wx, u],
-                    [np.zeros(3), 0]])
-
-    return mat
-
-def SO3toSE3(rot, trans):
-    """
-    Given rotation vector rot and translation vector trans, generate a SO3 matrix
-    :param rot: rotation parameters in Euler angle [elevataion(x), azimuth(y), in-plane(z)]
-    :param trans:  translation parameters [tx, ty, tz]
-    :return: SE3 matrix (Lie group)
-    """
-    ext = np.zeros((4, 4), dtype=np.float32)
-    ext[0:3, 0:3] = rot
-    ext[0:3, 3] = trans
-    ext[3, 3] = 1.0
-
-    return ext
-
-
-def toParameters(Ext, PoseParameterModel='Eulerzyx', toRadian=False):
-    '''
-    Factor out pose parameters according to the specified pose model
-    :param Ext: SE3 extrinsic matrix
-    :param PoseParameterModel: factor as a specific Euler form, others are currently not implemented
-    :param toRadian:
-    :return: rotation (or axis vector in case of Axis angle pose parameter), translation parameters
-    '''
-
-    # Euler Angle
-    if PoseParameterModel.find('Euler') >= 0:
-        translation = Ext[0:3, 3]
-
-        if PoseParameterModel == 'Eulerzyx':
-            r02 = Ext[0][2]
-            if r02 < 1:
-                if r02 > -1:
-                    thetaY = math.asin(r02)
-                    thetaX = math.atan2(-Ext[1][2], Ext[2][2])
-                    thetaZ = math.atan2(-Ext[0][1], Ext[0][0])
-                else:  # r02 = -1
-                    thetaY = -90
-                    thetaX = -math.atan2(Ext[1][0], Ext[1][1])
-                    thetaZ = 0
-            else:  # r02 = 1
-                thetaY = 90
-                thetaX = math.atan2(Ext[1][0], Ext[1][1])
-                thetaZ = 0
-
-        if not toRadian:
-            thetaX = math.degrees(thetaX)
-            thetaY = math.degrees(thetaY)
-            thetaZ = math.degrees(thetaZ)
-
-        rotation = [thetaX, thetaY, thetaZ]
-
-    # Axis Angle
-    elif PoseParameterModel == 'AxisAngle':
-        se3 = SE3tose3(Ext)
-        w, u = [se3[2][1], se3[0][2], se3[1][0]], se3[0:3,3]
-        rotation, translation =  w, u
-    elif PoseParameterModel == 'Quaternion':
-        raise NotImplementedError
-    else:
-        raise NotImplementedError
-
-    return rotation, translation
 
 
 #TODO: merge to Pose class

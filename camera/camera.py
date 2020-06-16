@@ -97,7 +97,7 @@ class Camera():
 
         return OpenGLperspective
 
-    def project(self, points):
+    def project(self, points, convertYZ =True):
         """
 
         :param points: Nx3 or Nx4 homogeneous coordinate
@@ -116,11 +116,11 @@ class Camera():
         # This makes our depth < 0, and thus inverting the x & y axis when dividing the depth value (when multiplying intrinsic matrix)
         # However, when storing image to array, the x index increases to the right and y index increases downward, thus a change in x axis is needed
         # Add negation to y,z or add negation to x (camera coordinate)
-
-        cloud[:, 0] = -cloud[:, 0]
-        #or
-        #cloud[:,1] = -cloud[:,1]
-        #cloud[:, 2] = -cloud[:, 2]
+        if convertYZ == True:
+            cloud[:,1] = -cloud[:,1]
+            cloud[:, 2] = -cloud[:, 2]
+        # or
+        #cloud[:, 0] = -cloud[:, 0]
 
         computed_pixels = np.zeros((cloud.shape[0], 2))
         computed_pixels[:, 0] = cloud[:, 0] * self.focal[0] / cloud[:, 2] + self.center[0]

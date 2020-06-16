@@ -31,7 +31,8 @@ class Window:
          Discription: get the current connected monitors
         :return: an array of monitor pointers
         """
-        init_glfw()
+        if not glfw.init():
+            print('Failed to initialize GLFW')
         return glfw.get_monitors()
 
     def processInput(self):
