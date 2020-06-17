@@ -8,8 +8,15 @@ class Pose():
         self.isRadian = isRadian
         self.rvec = rvec
         self.tvec = tvec
+        self.convertYZMat = np.array([[1, 0, 0, 0],
+                                      [0, -1, 0, 0],
+                                      [0, 0, -1, 0],
+                                      [0, 0, 0, 1]])
         self.SE3 = self.toSE3()
-        self.__convertYZ()
+        self.SE3Raw = self.SE3
+        self.convertYZ()
+
+
 
     def update(self,rvec, tvec, PoseParamModel=None):
         if PoseParamModel != None:
@@ -19,7 +26,8 @@ class Pose():
         self.SE3 = self.toSE3()
         self.se3 = self.__SE3Tose3()
         self.SE3 = self.__axixToSE3(hasUvec=True)
-        self.__convertYZ()
+        self.SE3Raw = self.SE3
+        self.convertYZ()
 
 
     def toSE3(self, hasUvec=False):
@@ -213,12 +221,9 @@ class Pose():
 
         return self.se3
 
-    def __convertYZ(self):
-        convert_yz = np.eye(4)
-        convert_yz[1, 1] = -1
-        convert_yz[2, 2] = -1
-        self.SO3 = convert_yz[:3,:3].dot(self.SO3)
-        self.SE3 = convert_yz.dot(self.SE3)
+    def convertYZ(self):
+        self.SO3 = self.convertYZMat[:3,:3].dot(self.SO3)
+        self.SE3 = self.convertYZMat.dot(self.SE3)
 
 
 def toHomo(vectors):
