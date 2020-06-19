@@ -231,6 +231,7 @@ def main():
         #   Caution: need to clarify what camera coordinate is the extrinsic matrix transformed to
         #   If OpenCV pose estimation is used, than the camera coordinate is  z forward/ -Y up, then no convertYZ is needed
         #   If OpenGL is used to render (and ext mat transformed to coordinate to opencv cam), then it requires the camera coordinate to be -z forward/ Y up, hence a convertYZ is needed
+        #  Also, Y up, -z forward  3D object file format is needed (or there is a need for axis conversion)
         # ===========================
         rgb, im_depth = mrenderer.draw(modelMat, objExtrinsic, objExtrinsic, drawLamp=False, drawBox=False,
                                      linearDepth=True)
@@ -240,6 +241,7 @@ def main():
         #   Caution: need to clarify what camera coordinate is the extrinsic matrix transformed to
         #   If OpenCV pose estimation is used, than the camera coordinate is  z forward/ -Y up, then no convertYZ is needed
         #   If OpenGL is used to render (and ext mat transformed to coordinate to opencv cam), then it requires the camera coordinate to be -z forward/ Y up, hence a convertYZ is needed
+        #  Also, Y up, -z forward  3D object file format is needed (or there is a need for axis conversion)
         #=========================== 
         
         #===== 4 x N model space CAD pcd
