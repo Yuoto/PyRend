@@ -13,8 +13,7 @@ class Pose():
                                       [0, 0, -1, 0],
                                       [0, 0, 0, 1]])
         self.SE3 = self.toSE3()
-        self.SE3Raw = self.SE3
-        self.convertYZ()
+        self.SE3_gl = self.convertYZMat.dot(self.SE3)
 
 
 
@@ -26,8 +25,7 @@ class Pose():
         self.SE3 = self.toSE3()
         self.se3 = self.__SE3Tose3()
         self.SE3 = self.__axixToSE3(hasUvec=True)
-        self.SE3Raw = self.SE3
-        self.convertYZ()
+        self.SE3_gl = self.convertYZMat.dot(self.SE3)
 
 
     def toSE3(self, hasUvec=False):
@@ -122,6 +120,7 @@ class Pose():
                         [r[0] * r[1], r[1] * r[1], r[2] * r[1]],
                         [r[0] * r[2], r[1] * r[2], r[2] * r[2]]])
         self.SO3 = c * np.eye(3) + (1 - c) * rrt + s * r_x
+        self.SO3_gl = self.convertYZMat[:3,:3].dot(self.SO3)
 
         if hasUvec:
             sinc = np.sin(theta)/theta if theta else 1.

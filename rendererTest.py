@@ -227,10 +227,21 @@ def main():
         rgb2, im_depth = mrenderer2.draw(modelMat, objExtrinsic, objExtrinsic, drawLamp=False, drawBox=False,
                                      linearDepth=True)
         '''
+        # ===========================
+        #   Caution: need to clarify what camera coordinate is the extrinsic matrix transformed to
+        #   If OpenCV pose estimation is used, than the camera coordinate is  z forward/ -Y up, then no convertYZ is needed
+        #   If OpenGL is used to render (and ext mat transformed to coordinate to opencv cam), then it requires the camera coordinate to be -z forward/ Y up, hence a convertYZ is needed
+        # ===========================
         rgb, im_depth = mrenderer.draw(modelMat, objExtrinsic, objExtrinsic, drawLamp=False, drawBox=False,
                                      linearDepth=True)
 
         '''
+         #===========================
+        #   Caution: need to clarify what camera coordinate is the extrinsic matrix transformed to
+        #   If OpenCV pose estimation is used, than the camera coordinate is  z forward/ -Y up, then no convertYZ is needed
+        #   If OpenGL is used to render (and ext mat transformed to coordinate to opencv cam), then it requires the camera coordinate to be -z forward/ Y up, hence a convertYZ is needed
+        #=========================== 
+        
         #===== 4 x N model space CAD pcd
         v_homo = toHomo(v)
         cam_coord = np.dot(objExtrinsic, np.dot(modelMat, v_homo))
