@@ -12,7 +12,6 @@ def checkBoundary(cam, xL, yL, BBwidth, BBheight):
 
 
 
-
 def computeBoundingBox(cam, modelMat, extMat, tightBox, scale=(2, 2)):
     """
 

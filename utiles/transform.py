@@ -13,19 +13,28 @@ class Pose():
                                       [0, 0, -1, 0],
                                       [0, 0, 0, 1]])
         self.SE3 = self.toSE3()
+        self.se3 = self.SE3toParam()
         self.SE3_gl = self.convertYZMat.dot(self.SE3)
 
 
 
-    def update(self,rvec, tvec, PoseParamModel=None):
+    def update(self,rvec=None, tvec=None, PoseParamModel=None):
         if PoseParamModel != None:
             self.PoseParamModel = PoseParamModel
-        self.rvec = rvec
-        self.tvec = tvec
-        self.SE3 = self.toSE3()
-        self.se3 = self.__SE3Tose3()
-        self.SE3 = self.__axixToSE3(hasUvec=True)
-        self.SE3_gl = self.convertYZMat.dot(self.SE3)
+        if np.any(rvec != None):
+            self.rvec = rvec
+        if np.any(tvec != None):
+            self.tvec = tvec
+
+        if  np.all(rvec == None) and  np.all(tvec == None):
+            self.rvec = self.se3[:3]
+            self.SE3 = self.__axixToSE3(hasUvec=True)
+            self.SE3_gl = self.convertYZMat.dot(self.SE3)
+        else:
+            self.SE3 = self.toSE3()
+            self.se3 = self.__SE3Tose3()
+            self.SE3 = self.__axixToSE3(hasUvec=True)
+            self.SE3_gl = self.convertYZMat.dot(self.SE3)
 
 
     def toSE3(self, hasUvec=False):
@@ -100,14 +109,14 @@ class Pose():
     '''
     def __axixToSE3(self, hasUvec=False):
         """
-                Calculate SE(3) from a given axis angle vector se(3) = (uvec, rvec)^T
+                Calculate SE(3) from a given axis angle vector se(3) = (rvec, uvec)^T
         :return:  SE(3) matrix
         """
         # Check if the angle is converted to radians
         rvec = self.rvec if self.isRadian else np.radians(self.rvec)
 
         #1. OpenCV method
-        #SO3 = cv2.Rodrigues(np.array(rvec))[0]
+        SO3 = cv2.Rodrigues(np.array(rvec))[0]
 
         #2.  R = cos(theta) * I + (1 - cos(theta)) * r * rT + sin(theta) * [r_x]
         theta = np.linalg.norm(rvec)
@@ -122,12 +131,32 @@ class Pose():
         self.SO3 = c * np.eye(3) + (1 - c) * rrt + s * r_x
         self.SO3_gl = self.convertYZMat[:3,:3].dot(self.SO3)
 
+        # debug
+        '''
+        theta = np.arccos((np.trace(self.SO3) - 1) / 2)
+        sincInv = theta/(2*np.sin(theta)) if theta else 0.5
+        lnR = sincInv * (self.SO3 - self.SO3.T)
+        self.so3 = np.array([lnR[2, 1], lnR[0, 2], lnR[1, 0]])
+
+        itheta = 1. / theta if theta else 0.
+        r = self.so3 * itheta
+        r_x = self.__skew(r)
+        rrt = np.array([[r[0] * r[0], r[1] * r[0], r[2] * r[0]],
+                        [r[0] * r[1], r[1] * r[1], r[2] * r[1]],
+                        [r[0] * r[2], r[1] * r[2], r[2] * r[2]]])
+        # J_inv =(theta/2)cot(theta/2) I + (1-(theta/2)cot(theta/2))r*rT - (theta/2)[r_x]
+        thetaHalf = theta / 2
+        cotthetaH = thetaHalf / np.tan(thetaHalf) if theta else 1.
+        J_inv = cotthetaH * np.eye(3) + (1 - cotthetaH) * rrt - thetaHalf * r_x
+        '''
+
         if hasUvec:
             sinc = np.sin(theta)/theta if theta else 1.
             cosc = (1-np.cos(theta))/theta if theta else 0.
             #J = sin(theta)/theta I + (1-sin(theta)/theta)rrT + (1-cos(theta))/theta * [r_x]
             J = sinc* np.eye(3) + (1-sinc)*rrt + cosc*r_x
-            self.tvec = J.dot(self.uvec)
+            #a = np.dot(J,J_inv)
+            self.tvec = J.dot(self.se3[3:6])
 
         mat = np.eye(4)
         mat[:3, :3] = self.SO3
@@ -201,6 +230,7 @@ class Pose():
         """
         theta = np.arccos((np.trace(self.SO3) - 1) / 2)
         sincInv = theta/(2*np.sin(theta)) if theta else 0.5
+        sinc = np.sin(theta)/theta if theta else 1.
         lnR = sincInv * (self.SO3 - self.SO3.T)
         self.so3 = np.array([lnR[2, 1], lnR[0, 2], lnR[1, 0]])
 
@@ -215,8 +245,8 @@ class Pose():
         thetaHalf = theta / 2
         cotthetaH = thetaHalf / np.tan(thetaHalf) if theta else 1.
         J_inv = cotthetaH * np.eye(3) + (1 - cotthetaH) * rrt - thetaHalf * r_x
-        self.uvec = np.dot(J_inv, self.tvec)
-        self.se3 = np.hstack((self.so3, self.uvec))
+
+        self.se3 = np.hstack((self.so3, np.dot(J_inv, self.tvec)))
 
         return self.se3
 
