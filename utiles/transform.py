@@ -4,6 +4,13 @@ import cv2
 
 class Pose():
     def __init__(self,rvec, tvec, PoseParamModel='axis', isRadian=True):
+        """
+        All coordinates of the parameters are in OpenCV coordinate system, except for SE3_gl which is in OpenGL coordinate system
+        :param rvec:  axis angle (rotational parameter)
+        :param tvec:  translational parameter in meter
+        :param PoseParamModel:  'axis angle',  'euler angle'  and 'quaternion'
+        :param isRadian: whether the given rotational parameter is in radians
+        """
         self.PoseParamModel = PoseParamModel
         self.isRadian = isRadian
         self.rvec = rvec
@@ -15,6 +22,25 @@ class Pose():
         self.SE3 = self.toSE3()
         self.se3 = self.SE3toParam()
         self.SE3_gl = self.convertYZMat.dot(self.SE3)
+
+
+    def setSE3(self, SE3, isOpenGL=False):
+        """
+        Set the internal parameters with an external SE3 matrix
+        :param SE3: 4x4 SE(3) rigid transformation matrix
+        :return: None
+        """
+        if isOpenGL:
+            self.SE3_gl = SE3
+            self.SE3 = self.convertYZMat.dot(SE3)
+        else:
+            self.SE3 = SE3
+            self.SE3_gl = self.convertYZMat.dot(SE3)
+
+        self.SO3 = self.SE3[:3,:3]
+        self.rvec  = cv2.Rodrigues(self.SO3)[0].squeeze()
+        self.tvec  =  self.SE3[:3,3]
+        self.se3 = self.SE3toParam()
 
 
 
