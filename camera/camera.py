@@ -1,13 +1,13 @@
 import numpy as np
-
+import logging
 
 class Camera():
-    def __init__(self, windowSize, focal, center, near=0.01, far=100, depthScale=1):
+    def __init__(self, windowSize, focal=(None), center=None, distCoeff = None, near=0.01, far=100, depthScale=1):
         '''
-
-        :param windowSize: [x,y] size of the window
-        :param focal: [fx,fy] focal length
-        :param center: [cx,cy] principle point
+                Camera class, given base project/ back project functions
+        :param windowSize: tuple or list (x,y),  size of the window
+        :param focal: tuple or list (fx,fy), focal length
+        :param center: tuple or list (cx,cy),  principle point
         :param near: near plane
         :param far: far plane
         :param depthScale:
@@ -20,24 +20,34 @@ class Camera():
         self.far = far
         self.near = near
         self.depthScale = depthScale
-        self.OpenGLperspective = self.__setOpenGLPerspective()
-        self.intrinsic = self.__setIntrinsic()
-        self.distCoeff = None
+        self.distCoeff = distCoeff
+
+        if focal == None:
+            logging.warning('focal not set!')
+        if center == None:
+            logging.warning('center not set!')
+        if distCoeff == None:
+            logging.warning('distortion coefficient not set!')
+        if focal != None and center != None:
+            self.OpenGLperspective = self.__setOpenGLPerspective()
+            self.intrinsic = self.__setIntrinsic()
+            logging.warning('intrinsic values not set!')
+
 
     def setDistCoeff(self, distCoeff):
         self.distCoeff = distCoeff
-
+        logging.info('distortion coefficient set!')
 
     def setIntrinsic(self, intrin):
         self.intrinsic = intrin
         self.focal = (intrin[0][0],intrin[1][1])
         self.center = (intrin[0][2],intrin[1][2])
 
-        #update OpenGLpersective
+        #update OpenGL persective & OpenCV intrinsic values
         self.OpenGLperspective = self.__setOpenGLPerspective()
+        self.intrinsic = self.__setIntrinsic()
 
     def __setIntrinsic(self):
-
         a = self.focal[0] * self.depthScale
         b = self.focal[1] * self.depthScale
         cx, cy = self.center
@@ -45,6 +55,7 @@ class Camera():
                               [0, b, cy, 0],
                               [0, 0, 1, 0],
                               [0, 0, 0, 1]], dtype=np.float32)
+        logging.info('Intrinsic set!')
         return intrinsic
 
     def GetCameraViewMatrix(self, up, eye, at, inplane, isRadian=True):
@@ -94,6 +105,8 @@ class Camera():
                                       [0, 2 * fy / self.windowSize[1], 2 * cy / self.windowSize[1] - 1, 0],
                                       [0, 0, -(f + n) / (f - n), -2 * f * n / (f - n)],
                                       [0, 0, -1, 0]], dtype=np.float32)
+
+        logging.info('OpenGL Perspective set!')
 
         return OpenGLperspective
 
