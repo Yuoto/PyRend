@@ -6,6 +6,7 @@ from ctypes import  sizeof, c_void_p,c_float
 import numpy as np
 from shader import Shader
 from model import Model
+import cv2
 
 
 float_size = sizeof(c_float)
@@ -341,7 +342,34 @@ def framebuffer_size_callback(window,width, height):
 
 
 
+def loadTexture(imPath, size=None):
+    """
+    User function to load a given texture into GPU and get a corresponding texture ID
+    :param imPath: image path
+    :param size: the desired output size  (perform cv2.resize if resize is needed(
+    :return:
+        textureID : the ID of the texture
+        texH: texture height
+        texW: texture width
+    """
+    textureID = glGenTextures(1)
+    glBindTexture(GL_TEXTURE_2D, textureID)
 
+    # Set the texture wrapping parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+    # Set texture filtering parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
 
+    # load image
+    tex = cv2.imread(imPath)
+    if size != None:
+        tex = cv2.resize(tex,size)
+    texH, texW, _ = tex.shape
 
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texW, texH, 0, GL_BGR, GL_UNSIGNED_BYTE, tex)
+
+    return textureID, texH, texW
 
