@@ -1,9 +1,10 @@
 import numpy as np
 import math
 import cv2
+import logging
 
 class Pose():
-    def __init__(self,rvec, tvec, PoseParamModel='axis', isRadian=True):
+    def __init__(self,rvec=np.zeros(3), tvec=np.zeros(3), PoseParamModel='axis', isRadian=True):
         """
         All coordinates of the parameters are in OpenCV coordinate system, except for SE3_gl which is in OpenGL coordinate system
         :param rvec:  axis angle (rotational parameter)
@@ -15,6 +16,8 @@ class Pose():
         self.isRadian = isRadian
         self.rvec = rvec
         self.tvec = tvec
+        if np.all(self.rvec == np.zeros(3)) and np.all(self.tvec == np.zeros(3)):
+            logging.warning('rvec, tvec are set to zeros')
         self.convertYZMat = np.array([[1, 0, 0, 0],
                                       [0, -1, 0, 0],
                                       [0, 0, -1, 0],
@@ -146,6 +149,8 @@ class Pose():
 
         #2.  R = cos(theta) * I + (1 - cos(theta)) * r * rT + sin(theta) * [r_x]
         theta = np.linalg.norm(rvec)
+        #theta = np.arccos((np.trace(SO3) - 1) / 2)   Don't know why it is different from  np.linalg.norm(self.rvec)
+
         itheta = 1. / theta if theta else 0.
         r = rvec * itheta
         r_x = self.__skew(r)
@@ -157,31 +162,10 @@ class Pose():
         self.SO3 = c * np.eye(3) + (1 - c) * rrt + s * r_x
         self.SO3_gl = self.convertYZMat[:3,:3].dot(self.SO3)
 
-        # debug
-        '''
-        theta = np.arccos((np.trace(self.SO3) - 1) / 2)
-        sincInv = theta/(2*np.sin(theta)) if theta else 0.5
-        lnR = sincInv * (self.SO3 - self.SO3.T)
-        self.so3 = np.array([lnR[2, 1], lnR[0, 2], lnR[1, 0]])
-
-        itheta = 1. / theta if theta else 0.
-        r = self.so3 * itheta
-        r_x = self.__skew(r)
-        rrt = np.array([[r[0] * r[0], r[1] * r[0], r[2] * r[0]],
-                        [r[0] * r[1], r[1] * r[1], r[2] * r[1]],
-                        [r[0] * r[2], r[1] * r[2], r[2] * r[2]]])
-        # J_inv =(theta/2)cot(theta/2) I + (1-(theta/2)cot(theta/2))r*rT - (theta/2)[r_x]
-        thetaHalf = theta / 2
-        cotthetaH = thetaHalf / np.tan(thetaHalf) if theta else 1.
-        J_inv = cotthetaH * np.eye(3) + (1 - cotthetaH) * rrt - thetaHalf * r_x
-        '''
-
         if hasUvec:
             sinc = np.sin(theta)/theta if theta else 1.
             cosc = (1-np.cos(theta))/theta if theta else 0.
-            #J = sin(theta)/theta I + (1-sin(theta)/theta)rrT + (1-cos(theta))/theta * [r_x]
             J = sinc* np.eye(3) + (1-sinc)*rrt + cosc*r_x
-            #a = np.dot(J,J_inv)
             self.tvec = J.dot(self.se3[3:6])
 
         mat = np.eye(4)
@@ -254,9 +238,9 @@ class Pose():
             Calculate se(3) = [ rvec, uvec] given SE(3)
         :return:
         """
-        theta = np.arccos((np.trace(self.SO3) - 1) / 2)
+        #theta = np.arccos((np.trace(self.SO3) - 1) / 2)    Don't know why it is different from  np.linalg.norm(self.rvec)
+        theta = np.linalg.norm(self.rvec)
         sincInv = theta/(2*np.sin(theta)) if theta else 0.5
-        sinc = np.sin(theta)/theta if theta else 1.
         lnR = sincInv * (self.SO3 - self.SO3.T)
         self.so3 = np.array([lnR[2, 1], lnR[0, 2], lnR[1, 0]])
 
@@ -283,12 +267,57 @@ class Pose():
 
 def toHomo(vectors):
     """
-
+    Convert  N x 3 vectors to  4 x N vectors in homogeneous coordinate form
     :param vectors:  N x 3 vectors
     :return:  4 x N vectors
     """
 
     return np.concatenate((vectors, np.ones((vectors.shape[0], 1))), axis=1).T
+
+
+def checkPointHomo(vectors):
+    """
+    Check if the input vector is N x 3 or  N x 4 homogeneous coordinate
+    :param vectors:  N x 3 vectors
+    :return:  N x 4 vectors
+    """
+    N, dim = vectors.shape
+    if dim == 3:
+        vec = np.ones((N,4),dtype=vectors.dtype)
+        vec[:,:3] = vectors
+        vec[:,3] = 1
+    else:
+        vec = vectors
+
+    return vec
+
+
+def kabsch(_3d1, _3d2):
+    """
+        Calulate the rigid transformation  _3d2 =  T x  _3d1
+    :param _3d1: N x 3 point cloud (source)
+    :param _3d2: N x 3 point cloud  (destination)
+    :return:  Rotation matrix and translation parameters from 1 ->  2  (Rx1 + t = x2)
+    """
+    c1 = np.average(_3d1,axis=0)
+    c2 = np.average(_3d2,axis=0)
+    y1 = _3d1 - c1
+    y2 = _3d2 - c2
+    H = np.array(np.matmul(np.mat(y1).T, np.mat(y2)))
+    U, S, VT = np.linalg.svd(H)
+    V = VT.T
+    R = V.dot(U.T)
+    t = c2 - R.dot(c1)
+
+    return R, t
+
+
+
+
+
+
+
+
 
 
 
