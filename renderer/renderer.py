@@ -364,12 +364,14 @@ def loadTexture(imPath, size=None):
 
     # load image
     tex = cv2.imread(imPath)
+    #cv2.imshow(imPath.rsplit('.')[0],tex)
     if size != None:
         tex = cv2.resize(tex,size)
     texH, texW, _ = tex.shape
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texW, texH, 0, GL_BGR, GL_UNSIGNED_BYTE, tex)
+    glEnable(GL_TEXTURE_2D)
 
     return textureID, texH, texW
 

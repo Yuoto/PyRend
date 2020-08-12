@@ -39,7 +39,6 @@ class Camera():
         logging.info('distortion coefficient set!')
 
     def setIntrinsic(self, intrin):
-        self.intrinsic = intrin
         self.focal = (intrin[0][0],intrin[1][1])
         self.center = (intrin[0][2],intrin[1][2])
 
