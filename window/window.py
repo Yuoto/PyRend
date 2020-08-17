@@ -12,7 +12,10 @@ class Window:
         self.windowSize = windowSize
         self.visible = visible
         self.monitor = monitor
-        self.window = self.__setUpWindow(self.windowSize, windowName, self.monitor)
+        if self.monitor == None:
+            self.window = self.__setUpWindow(self.windowSize, windowName)
+        else:
+            self.window = self.__setUpWindow(self.windowSize, windowName, self.monitor)
     def __setUpWindow(self,windowSize,name, monitor):
         # -------- setting window
 
