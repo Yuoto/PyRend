@@ -29,8 +29,10 @@ class Pose():
 
     def setSE3(self, SE3, isOpenGL=False):
         """
-        Set the internal parameters with an external SE3 matrix
+        Set the internal parameters with an external SE3 matrix.
+        It will set the the matrix into self.SE3_gl and self.SE3 correctly according to the given isOpenGL Flag
         :param SE3: 4x4 SE(3) rigid transformation matrix
+        :param isOpenGL: this is set to true if the SE3 input argument is in the OpenGL coordinate system
         :return: None
         """
         if isOpenGL:

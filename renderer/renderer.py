@@ -117,12 +117,12 @@ class Renderer:
                       -0.5, 0.5, -0.5, 0, 1, 0, 0, 1
                       ], dtype=np.float32)
         self.__3DTightBoxVertices = self.get3DTightBox()
-        self.__vboTightBox, self.__vaoTightBox = self.__setUp3DTightBox()
-        self.__vboLamp, self.__vaoLamp = self.__setUpLamp(self.__lampVertices)
-        self.setUpBlending()
-        self.updateLight()
+        self.__vboTightBox, self.__vaoTightBox = self.__setup_3D_tightbox()
+        self.__vboLamp, self.__vaoLamp = self.__setup_lamp(self.__lampVertices)
+        self.setup_blending()
+        self.update_light()
 
-    def setUpBlending(self, FaceCull=False,Blend=True,DepthFunc='GL_LEQUAL',DepthTest=True,MultiSample=True):
+    def setup_blending(self, FaceCull=False,Blend=True,DepthFunc='GL_LEQUAL',DepthTest=True,MultiSample=True):
         # Enable depth test and blend
         if Blend:
             glEnable(GL_BLEND)
@@ -148,7 +148,7 @@ class Renderer:
             glEnable(GL_CULL_FACE)
             glCullFace(GL_BACK)
 
-    def __setUp3DTightBox(self):
+    def __setup_3D_tightbox(self):
         vbo_TightBox = glGenBuffers(1)
         vao_TightBox = glGenVertexArrays(1)
 
@@ -186,7 +186,7 @@ class Renderer:
 
         return vbo_TightBox, vao_TightBox
 
-    def __setUpLamp(self,lamp_vertices):
+    def __setup_lamp(self,lamp_vertices):
         # Buffer setting for Lamp
         vbo_lamp = glGenBuffers(1)
         vao_lamp = glGenVertexArrays(1)
@@ -212,7 +212,7 @@ class Renderer:
 
         return _3DBox
 
-    def updateLight(self):
+    def update_light(self):
         # set the light shader
         self.__modelShader.use()
         self.__modelShader.setBool('light.enableDirectional', self.light.enableDirectional)
@@ -246,7 +246,7 @@ class Renderer:
         glBindVertexArray(self.__vaoLamp)
         glDrawArrays(GL_TRIANGLES, 0, 36)
 
-    def __nonLinearDepth2Linear(self,depth):
+    def __non_linear_depth_2_linear(self,depth):
         f = self.camera.far
         n = self.camera.near
         ndc_depth = 2*depth-1
@@ -291,25 +291,25 @@ class Renderer:
             self.__drawLamp(lightExtrinsic)
 
         if drawBox:
-            self.__drawBox(model, modelExtrinsic, color)
+            self.__draw_box(model, modelExtrinsic, color)
 
         #self.window.updateWindow()
 
 
-        depth = glReadPixels(0, 0, self.window.windowSize[0], self.window.windowSize[1], GL_DEPTH_COMPONENT, GL_FLOAT)
-        depth = np.flipud(depth.reshape(self.window.windowSize[::-1]))
+        depth = glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], GL_DEPTH_COMPONENT, GL_FLOAT)
+        depth = np.flipud(depth.reshape(self.window.window_size[::-1]))
 
 
-        imageBuf = glReadPixels(0, 0, self.window.windowSize[0], self.window.windowSize[1], GL_RGB, GL_UNSIGNED_BYTE)
+        imageBuf = glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], GL_RGB, GL_UNSIGNED_BYTE)
         im = np.fromstring(imageBuf, np.uint8)
 
         #This is because of the y axis of the image coordinate system and that of the opencv image layout is inverted
-        rgb = np.flipud(np.reshape(im, (self.window.windowSize[1], self.window.windowSize[0], 3)))
+        rgb = np.flipud(np.reshape(im, (self.window.window_size[1], self.window.window_size[0], 3)))
 
         # Since the value from depth buffer contains non-linear depth ~[0,1], background depth will be cast to 1.
         mask = depth < 1
         if linearDepth:
-            depth = -1*mask*self.__nonLinearDepth2Linear(depth)
+            depth = -1*mask*self.__non_linear_depth_2_linear(depth)
         else:
             depth = mask*depth
 
@@ -317,7 +317,7 @@ class Renderer:
 
 
 
-    def __drawBox(self,model,modelExtrinsic,color):
+    def __draw_box(self,model,modelExtrinsic,color):
         self.__tightBoxShader.use()
         self.__tightBoxShader.setMat4('intrinsic', self.camera.OpenGLperspective)
         self.__tightBoxShader.setMat4('extrinsic', modelExtrinsic)
@@ -342,7 +342,7 @@ def framebuffer_size_callback(window,width, height):
 
 
 
-def loadTexture(imPath, size=None):
+def load_texture(imPath, size=None):
     """
     User function to load a given texture into GPU and get a corresponding texture ID
     :param imPath: image path
