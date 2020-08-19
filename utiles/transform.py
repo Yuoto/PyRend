@@ -16,8 +16,6 @@ class Pose():
         self.isRadian = isRadian
         self.rvec = rvec
         self.tvec = tvec
-        if np.all(self.rvec == np.zeros(3)) and np.all(self.tvec == np.zeros(3)):
-            logging.warning('rvec, tvec are set to zeros')
         self.convertYZMat = np.array([[1, 0, 0, 0],
                                       [0, -1, 0, 0],
                                       [0, 0, -1, 0],

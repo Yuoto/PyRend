@@ -2,10 +2,10 @@ import numpy as np
 import logging
 
 class Camera():
-    def __init__(self, windowSize, focal=(None), center=None, distCoeff = None, near=0.01, far=100, depthScale=1):
+    def __init__(self, window_size, focal=(None), center=None, distCoeff = None, near=0.01, far=100, depthScale=1):
         '''
                 Camera class, given base project/ back project functions
-        :param windowSize: tuple or list (x,y),  size of the window
+        :param window_size: tuple or list (x,y),  size of the window
         :param focal: tuple or list (fx,fy), focal length
         :param center: tuple or list (cx,cy),  principle point
         :param near: near plane
@@ -14,7 +14,7 @@ class Camera():
         '''
 
         # OpenGL uses right hand system, but the camera is facing at the -Z direction
-        self.windowSize = windowSize
+        self.window_size = window_size
         self.focal = focal
         self.center = center
         self.far = far
@@ -100,8 +100,8 @@ class Camera():
             '''
         # ==== 2. asymmetry camera (with OpenCV calibrated parameters)
         # https://strawlab.org/2011/11/05/augmented-reality-with-OpenGL/
-        OpenGLperspective = np.array([[2 * fx / self.windowSize[0], 0, 1 - 2 * cx / self.windowSize[0], 0],
-                                      [0, 2 * fy / self.windowSize[1], 2 * cy / self.windowSize[1] - 1, 0],
+        OpenGLperspective = np.array([[2 * fx / self.window_size[0], 0, 1 - 2 * cx / self.window_size[0], 0],
+                                      [0, 2 * fy / self.window_size[1], 2 * cy / self.window_size[1] - 1, 0],
                                       [0, 0, -(f + n) / (f - n), -2 * f * n / (f - n)],
                                       [0, 0, -1, 0]], dtype=np.float32)
 
@@ -209,7 +209,7 @@ class Camera():
             convert_xz[2, 2] = -1
             pix_pts = np.dot(self.OpenGLperspective, np.dot(convert_xz,points))
             pix_pts = (pix_pts[:2, :] / pix_pts[2, :] + 1) * 0.5 * np.array(
-                [[self.windowSize[0]], [self.windowSize[1]]])
+                [[self.window_size[0]], [self.window_size[1]]])
             pix_pts = pix_pts.astype(np.int32).T
         return pix_pts
 
@@ -221,8 +221,8 @@ class Camera():
         :param isOpenCV:
         :return:
         """
-        ymap = np.array([[j for i in range(self.windowSize[0])] for j in range(self.windowSize[1])])
-        xmap = np.array([[i for i in range(self.windowSize[0])] for j in range(self.windowSize[1])])
+        ymap = np.array([[j for i in range(self.window_size[0])] for j in range(self.window_size[1])])
+        xmap = np.array([[i for i in range(self.window_size[0])] for j in range(self.window_size[1])])
         depth_masked = depth[mask].flatten()[:, np.newaxis].astype(np.float32)
         xmap_masked = xmap[mask].flatten()[:, np.newaxis].astype(np.float32)
         ymap_masked = ymap[mask].flatten()[:, np.newaxis].astype(np.float32)
@@ -248,7 +248,7 @@ class Camera():
             convert_xz[2, 2] = -1
             pixels = np.dot(self.OpenGLperspective, np.dot(convert_xz, points))
             pixels = (pixels[:2, :] / pixels[2, :] + 1) * 0.5 * np.array(
-                [[self.windowSize[0]], [self.windowSize[1]]])
+                [[self.window_size[0]], [self.window_size[1]]])
             pixels = pixels.astype(np.int32).T
         return cloud
     '''
