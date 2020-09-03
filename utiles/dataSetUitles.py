@@ -3,10 +3,10 @@ from utiles.transform import toHomo
 
 
 def checkBoundary(cam, xL, yL, BBwidth, BBheight):
-    xL = xL if xL > 0 and xL < cam.windowSize[0] else 0
-    yL = yL if yL > 0 and yL < cam.windowSize[1] else 0
-    BBwidth = BBwidth if xL + BBwidth < cam.windowSize[0] else cam.windowSize[0] - xL - 1
-    BBheight = BBheight if yL + BBheight < cam.windowSize[1] else cam.windowSize[1] - yL - 1
+    xL = xL if xL > 0 and xL < cam.window_size[0] else 0
+    yL = yL if yL > 0 and yL < cam.window_size[1] else 0
+    BBwidth = BBwidth if xL + BBwidth < cam.window_size[0] else cam.window_size[0] - xL - 1
+    BBheight = BBheight if yL + BBheight < cam.window_size[1] else cam.window_size[1] - yL - 1
     #print(np.array([xL, yL, BBwidth, BBheight]))
     return np.array([xL, yL, BBwidth, BBheight], dtype=np.int32)
 
