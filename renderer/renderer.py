@@ -1,7 +1,7 @@
 import sys,os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import glfw
-from OpenGL.GL import *
+import OpenGL.GL as gl
 from ctypes import  sizeof, c_void_p,c_float
 import numpy as np
 from shader import Shader
@@ -125,32 +125,32 @@ class Renderer:
     def setup_blending(self, FaceCull=False,Blend=True,DepthFunc='GL_LEQUAL',DepthTest=True,MultiSample=True):
         # Enable depth test and blend
         if Blend:
-            glEnable(GL_BLEND)
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            gl.glEnable(gl.GL_BLEND)
+            gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
 
 
         # Due to some depth problem for models in ShapeNet
         if DepthTest:
-            glEnable(GL_DEPTH_TEST)
+            gl.glEnable(gl.GL_DEPTH_TEST)
             if DepthFunc == 'GL_LEQUAL':
-                glDepthFunc(GL_LEQUAL)
+                gl.glDepthFunc(gl.GL_LEQUAL)
             elif DepthFunc == 'GL_LESS':
-                glDepthFunc(GL_LESS)
+                gl.glDepthFunc(gl.GL_LESS)
 
 
 
         # Enable MSAA
         if MultiSample:
-            glEnable(GL_MULTISAMPLE)
+            gl.glEnable(gl.GL_MULTISAMPLE)
 
         # Enable Face Culling
         if FaceCull:
-            glEnable(GL_CULL_FACE)
-            glCullFace(GL_BACK)
+            gl.glEnable(gl.GL_CULL_FACE)
+            gl.glCullFace(gl.GL_BACK)
 
     def __setup_3D_tightbox(self):
-        vbo_TightBox = glGenBuffers(1)
-        vao_TightBox = glGenVertexArrays(1)
+        vbo_TightBox = gl.glGenBuffers(1)
+        vao_TightBox = gl.glGenVertexArrays(1)
 
         vertices = np.array([self.__3DTightBoxVertices[0][0],self.__3DTightBoxVertices[0][1],self.__3DTightBoxVertices[0][2]
             , self.__3DTightBoxVertices[1][0], self.__3DTightBoxVertices[1][1], self.__3DTightBoxVertices[1][2]
@@ -177,25 +177,25 @@ class Renderer:
             , self.__3DTightBoxVertices[6][0], self.__3DTightBoxVertices[6][1], self.__3DTightBoxVertices[6][2]
             , self.__3DTightBoxVertices[2][0], self.__3DTightBoxVertices[2][1], self.__3DTightBoxVertices[2][2]],dtype=np.float32)
 
-        glBindVertexArray(vao_TightBox)
+        gl.glBindVertexArray(vao_TightBox)
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_TightBox)
-        glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW)
-        glVertexAttribPointer(0, 3, GL_FLOAT, False, 3 * float_size, c_void_p(0))
-        glEnableVertexAttribArray(0)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_TightBox)
+        gl.glBufferData(gl.GL_ARRAY_BUFFER, vertices, gl.GL_STATIC_DRAW)
+        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 3 * float_size, c_void_p(0))
+        gl.glEnableVertexAttribArray(0)
 
         return vbo_TightBox, vao_TightBox
 
     def __setup_lamp(self,lamp_vertices):
         # Buffer setting for Lamp
-        vbo_lamp = glGenBuffers(1)
-        vao_lamp = glGenVertexArrays(1)
-        glBindVertexArray(vao_lamp)
+        vbo_lamp = gl.glGenBuffers(1)
+        vao_lamp = gl.glGenVertexArrays(1)
+        gl.glBindVertexArray(vao_lamp)
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_lamp)
-        glBufferData(GL_ARRAY_BUFFER, lamp_vertices, GL_STATIC_DRAW)
-        glVertexAttribPointer(0, 3, GL_FLOAT, False, 8 * float_size, c_void_p(0))
-        glEnableVertexAttribArray(0)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_lamp)
+        gl.glBufferData(gl.GL_ARRAY_BUFFER, lamp_vertices, gl.GL_STATIC_DRAW)
+        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 8 * float_size, c_void_p(0))
+        gl.glEnableVertexAttribArray(0)
 
         return vbo_lamp, vao_lamp
 
@@ -235,6 +235,24 @@ class Renderer:
         self.__modelShader.setMat4('extrinsic', extrinsicMat)
         self.__modelShader.setMat4('model', modelMat)
 
+    @staticmethod
+    def draw_pixels(img):
+        """
+            Render images to the currently binded window
+
+        Parameters
+        ----------
+        img : array_like, shape(h,w,3)
+            image to be rendered with type np.uint8
+        Returns
+        -------
+            None
+        """
+
+        #TODO: add viewport to function
+        data = np.flipud(img)
+        gl.glDrawPixels(data.shape[1], data.shape[0], gl.GL_RGB, gl.GL_UNSIGNED_BYTE, data)
+
     def __drawLamp(self, extrinsicMat):
         self.__lampShader.use()
         self.__lampShader.setVec3('color',self.light.lightColor)
@@ -243,8 +261,8 @@ class Renderer:
         model = np.eye(4)
         self.__lampShader.setMat4('model', model)
 
-        glBindVertexArray(self.__vaoLamp)
-        glDrawArrays(GL_TRIANGLES, 0, 36)
+        gl.glBindVertexArray(self.__vaoLamp)
+        gl.glDrawArrays(gl.GL_TRIANGLES, 0, 36)
 
     def __non_linear_depth_2_linear(self,depth):
         f = self.camera.far
@@ -296,11 +314,11 @@ class Renderer:
         #self.window.updateWindow()
 
 
-        depth = glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], GL_DEPTH_COMPONENT, GL_FLOAT)
+        depth = gl.glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], gl.GL_DEPTH_COMPONENT, gl.GL_FLOAT)
         depth = np.flipud(depth.reshape(self.window.window_size[::-1]))
 
 
-        imageBuf = glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], GL_RGB, GL_UNSIGNED_BYTE)
+        imageBuf = gl.glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], gl.GL_RGB, gl.GL_UNSIGNED_BYTE)
         im = np.fromstring(imageBuf, np.uint8)
 
         #This is because of the y axis of the image coordinate system and that of the opencv image layout is inverted
@@ -324,10 +342,10 @@ class Renderer:
         self.__tightBoxShader.setMat4('model', model)
         self.__tightBoxShader.setVec3('color', color)
 
-        glBindVertexArray(self.__vaoTightBox)
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-        glDrawArrays(GL_LINES, 0, 24)
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+        gl.glBindVertexArray(self.__vaoTightBox)
+        gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
+        gl.glDrawArrays(gl.GL_LINES, 0, 24)
+        gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
 
 
 
@@ -337,7 +355,7 @@ class Renderer:
  # callback for window resize
 def framebuffer_size_callback(window,width, height):
     # create viewport
-    glViewport(0,0,width,height)
+    gl.glViewport(0,0,width,height)
 
 
 
@@ -352,15 +370,15 @@ def load_texture(imPath, size=None):
         texH: texture height
         texW: texture width
     """
-    textureID = glGenTextures(1)
-    glBindTexture(GL_TEXTURE_2D, textureID)
+    textureID = gl.glGenTextures(1)
+    gl.glBindTexture(gl.GL_TEXTURE_2D, textureID)
 
     # Set the texture wrapping parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+    gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_REPEAT)
+    gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_REPEAT)
     # Set texture filtering parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+    gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR)
+    gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
 
     # load image
     tex = cv2.imread(imPath)
@@ -369,9 +387,9 @@ def load_texture(imPath, size=None):
         tex = cv2.resize(tex,size)
     texH, texW, _ = tex.shape
 
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texW, texH, 0, GL_BGR, GL_UNSIGNED_BYTE, tex)
-    glEnable(GL_TEXTURE_2D)
+    gl.glPixelStorei(gl.GL_UNPACK_ALIGNMENT, 1)
+    gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGB, texW, texH, 0, gl.GL_BGR, gl.GL_UNSIGNED_BYTE, tex)
+    gl.glEnable(gl.GL_TEXTURE_2D)
 
     return textureID, texH, texW
 
