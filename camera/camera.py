@@ -54,7 +54,7 @@ class Camera():
                               [0, b, cy, 0],
                               [0, 0, 1, 0],
                               [0, 0, 0, 1]], dtype=np.float32)
-        logging.info('Intrinsic set!')
+        #logging.info('Intrinsic set!')
         return intrinsic
 
     def GetCameraViewMatrix(self, up, eye, at, inplane, isRadian=True):
@@ -105,15 +105,15 @@ class Camera():
                                       [0, 0, -(f + n) / (f - n), -2 * f * n / (f - n)],
                                       [0, 0, -1, 0]], dtype=np.float32)
 
-        logging.info('OpenGL Perspective set!')
+        #logging.info('OpenGL Perspective set!')
 
         return OpenGLperspective
 
     def project(self, points, convertYZ =True):
         """
 
-        :param points: Nx3 or Nx4 homogeneous coordinate
-        :return: pixels
+        :param np.array points: Nx3 or Nx4 homogeneous coordinate
+        :return:  Nx2 pixels
         """
         cloud = points.copy()
         # Since we are using openGL coordinate system, the camera is looking at the -Z axis, and the right hand side is +X axis, the up is +Y axis
@@ -159,8 +159,7 @@ class Camera():
 
         output = np.zeros((len(coords), 3))
         values = depth[coords[:, 0], coords[:, 1]]
-        # Since this is the inverse of project function, also the X axis has to be negated
-        output[:, 0] = -(coords[:, 1] - self.center[0]) * values * constant_x
+        output[:, 0] = (coords[:, 1] - self.center[0]) * values * constant_x
         output[:, 1] = (coords[:, 0] - self.center[1]) * values * constant_y
         output[:, 2] = values
 
@@ -170,15 +169,14 @@ class Camera():
         """
 
         :param depth: N x 1 depth value
-        :param coords: Nx3 or Nx4 homogeneous coordinate
-        :return: output: Nx3 camera coodinate
+        :param coords: Nx2 pixel coordinate
+        :return: output: Nx3 camera coordinate
         """
         constant_x = 1.0 / self.focal[0]
         constant_y = 1.0 / self.focal[1]
 
         output = np.zeros((len(coords), 3))
-        # Since this is the inverse of project function, also the X axis has to be negated
-        output[:, 0] = -(coords[:, 0] - self.center[0]) * depth * constant_x
+        output[:, 0] = (coords[:, 0] - self.center[0]) * depth * constant_x
         output[:, 1] = (coords[:, 1] - self.center[1]) * depth * constant_y
         output[:, 2] = depth
         return output
