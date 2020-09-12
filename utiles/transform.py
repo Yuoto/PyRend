@@ -295,6 +295,8 @@ def checkPointHomo(vectors):
 def kabsch(_3d1, _3d2):
     """
         Calulate the rigid transformation  _3d2 =  T x  _3d1
+
+        Reference: https://en.wikipedia.org/wiki/Kabsch_algorithm
     :param _3d1: N x 3 point cloud (source)
     :param _3d2: N x 3 point cloud  (destination)
     :return:  Rotation matrix and translation parameters from 1 ->  2  (Rx1 + t = x2)
@@ -303,10 +305,12 @@ def kabsch(_3d1, _3d2):
     c2 = np.average(_3d2,axis=0)
     y1 = _3d1 - c1
     y2 = _3d2 - c2
-    H = np.array(np.matmul(np.mat(y1).T, np.mat(y2)))
+    H = np.array(np.matmul(np.mat(y1).T,np.mat(y2)))
     U, S, VT = np.linalg.svd(H)
     V = VT.T
-    R = V.dot(U.T)
+    d = np.linalg.det(V.dot(U.T))
+    I = np.diag([1,1,d])
+    R = V.dot(I.dot(U.T))
     t = c2 - R.dot(c1)
 
     return R, t
@@ -365,3 +369,37 @@ def rotatePose(rotation, pose1, radians):
 def setTranslation(Ext, translation):
     Ext[0:3, 3] = translation
     return Ext
+
+
+
+def main():
+    import sys
+    SOPHUS_ROOT = r'D:\MultimediaIClab\AR\Rendering\Sophus\py'
+    sys.path.append(SOPHUS_ROOT)
+
+    import sophus
+    from sophus.se3 import Se3
+
+
+
+    v = sophus.Vector6(0., 1, 0.5, 2., 1, 0.5)
+    w = Se3.exp(v)
+    mat = w.so3.matrix()
+
+    SO3 = cv2.Rodrigues(np.array([2., 1, 0.5]))
+
+    #a = Pose(rvec= np.array([2., 1, 0.5]), tvec= np.array([0., 1, 0.5]))
+    a = Pose()
+    a.se3 = np.array([ 2., 1, 0.5, 0., 1, 0.5,])
+    a.update()
+    a.se3 += (-np.array([ 2., 1, 0.5, 0., 1, 0.5,]))
+    a.update()
+    a.se3 += np.array([2., 1, 0.5, 0., 1, 0.5, ])
+    a.update()
+    my_SO3 = a.SE3[:3,:3]
+    my_tvec = a.SE3[:3,3]
+
+
+
+if __name__ == "__main__":
+    main()
