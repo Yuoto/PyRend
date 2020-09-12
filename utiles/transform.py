@@ -16,14 +16,30 @@ class Pose():
         self.isRadian = isRadian
         self.rvec = rvec
         self.tvec = tvec
-        self.convertYZMat = np.array([[1, 0, 0, 0],
-                                      [0, -1, 0, 0],
-                                      [0, 0, -1, 0],
-                                      [0, 0, 0, 1]])
         self.SE3 = self.toSE3()
         self.se3 = self.SE3toParam()
-        self.SE3_gl = self.convertYZMat.dot(self.SE3)
+        self.SE3_gl = self.convert_yz_mat(self.SE3)
 
+    @staticmethod
+    def convert_yz_mat(mat):
+        """
+        Transform the coordinates of opengl and opencv (add negation to both y, z axis)
+
+        Parameters
+        ----------
+        mat : array_like with shape (3x3) or (4x4)
+
+        Returns
+        -------
+         array_like with shape (3x3) or (4x4)
+            Same matrix but coordinate transformed
+        """
+
+        _mat = mat.copy()
+        _mat[1, :] = -_mat[1, :]
+        _mat[2, :] = -_mat[2, :]
+
+        return _mat
 
     def setSE3(self, SE3, isOpenGL=False):
         """
@@ -35,10 +51,10 @@ class Pose():
         """
         if isOpenGL:
             self.SE3_gl = SE3
-            self.SE3 = self.convertYZMat.dot(SE3)
+            self.SE3 = self.convert_yz_mat(SE3)
         else:
             self.SE3 = SE3
-            self.SE3_gl = self.convertYZMat.dot(SE3)
+            self.SE3_gl = self.convert_yz_mat(SE3)
 
         self.SO3 = self.SE3[:3,:3]
         self.rvec  = cv2.Rodrigues(self.SO3)[0].squeeze()
@@ -58,12 +74,12 @@ class Pose():
         if  np.all(rvec == None) and  np.all(tvec == None):
             self.rvec = self.se3[:3]
             self.SE3 = self.__axixToSE3(hasUvec=True)
-            self.SE3_gl = self.convertYZMat.dot(self.SE3)
+            self.SE3_gl = self.convert_yz_mat(self.SE3)
         else:
             self.SE3 = self.toSE3()
             self.se3 = self.__SE3Tose3()
             self.SE3 = self.__axixToSE3(hasUvec=True)
-            self.SE3_gl = self.convertYZMat.dot(self.SE3)
+            self.SE3_gl = self.convert_yz_mat(self.SE3)
 
 
     def toSE3(self, hasUvec=False):
@@ -160,7 +176,7 @@ class Pose():
                         [r[0] * r[1], r[1] * r[1], r[2] * r[1]],
                         [r[0] * r[2], r[1] * r[2], r[2] * r[2]]])
         self.SO3 = c * np.eye(3) + (1 - c) * rrt + s * r_x
-        self.SO3_gl = self.convertYZMat[:3,:3].dot(self.SO3)
+        self.SO3_gl = self.convert_yz_mat(self.SO3)
 
         if hasUvec:
             sinc = np.sin(theta)/theta if theta else 1.
@@ -259,10 +275,6 @@ class Pose():
         self.se3 = np.hstack((self.so3, np.dot(J_inv, self.tvec)))
 
         return self.se3
-
-    def convertYZ(self):
-        self.SO3 = self.convertYZMat[:3,:3].dot(self.SO3)
-        self.SE3 = self.convertYZMat.dot(self.SE3)
 
 
 def toHomo(vectors):
