@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(__file__))
 from window.window import Window
 from renderer.renderer import Light, Renderer
 from camera.camera import Camera
-from utiles.transform import toExtMat, SO3toSE3, setTranslation, toHomo
+from utiles.transform import setTranslation, toHomo
 import glfw
 import math, random
 import numpy as np
@@ -99,7 +99,11 @@ def main():
 
     # Model info
     #modelPath = '/home/yuoto/AR/estimation/models/obj_02.ply'
-    modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
+    #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
+    modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\CAD\demo_surgery_head_surface_printed.obj'
+    #modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\Checkpoint1\testAruco\data\dodeca_Only_Yup.obj'
+    #modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\CAD\test.obj'
+
     #modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
@@ -121,7 +125,7 @@ def main():
     SCR_WIDTH = 960
     SCR_HEIGHT = 540
 
-    mwindow = Window(windowSize=(SCR_WIDTH, SCR_HEIGHT), windowName='Renderer Test', visible=True)
+    mwindow = Window(window_size=(SCR_WIDTH, SCR_HEIGHT), window_name='Renderer Test', visible=True)
     if GUI:
         app_window = GlfwRenderer(mwindow.window)
 
@@ -157,7 +161,7 @@ def main():
         glfw.poll_events()
         if GUI:
             app_window.process_inputs()
-        mwindow.clearWindow((0., 0., 0.))
+        mwindow.clear_window((0., 0., 0.))
 
 
         curT = time.time()
@@ -171,11 +175,11 @@ def main():
         #azimuth = np.pi*(np.sin(ceta))
         #elevation = np.pi*(np.sin(ceta/2))
 
-        light_radius = 0.5
+        light_radius = 1
         light_ceta =  math.radians(50*curT)
         lightPos = np.array([light_radius * np.cos(light_ceta) * np.cos(light_ceta), light_radius * np.sin(light_ceta) + 0.15,
                              light_radius * np.cos(light_ceta) * np.sin(light_ceta)])
-        radius = 0.3
+        radius = 0.4
 
         # ================================================================================================================
         # Usually, when using outside-in tracking (i.e. concerning about object pose), the camera is always located at the center
@@ -188,7 +192,7 @@ def main():
 
 
         # Dataset 3D model scale (m)
-        modelScale = 1
+        modelScale = 0.001
         modelMat = np.diag(3 * [modelScale] + [1.])
 
         # ==============================================================================================
@@ -210,20 +214,19 @@ def main():
         modelMat = setTranslation(modelMat,np.array([0, 0, 0]))
 
 
-        # set light properties (remember to call updateLight())
+        # set light properties (remember to call update_light())
         mlight1.setStrength(0.35)
         mlight1.setColor(3 * [1.])
         mlight1.setAttenuation(True)
         mlight1.setDirectional(True)
         mlight1.setPos(objExtrinsic.dot(np.concatenate((lightPos,np.ones(1)))))
-        mrenderer.updateLight()
-        #mrenderer1.updateLight()
-        #mrenderer2.updateLight()
+        mrenderer.update_light()
+
 
 
         '''
         rgb1, im_depth = mrenderer1.draw(modelMat, objExtrinsic, objExtrinsic, drawLamp=False, drawBox=False, linearDepth=True)
-        mwindow.clearWindow((0.3, 0.3, 0.3))
+        mwindow.clear_window((0.3, 0.3, 0.3))
         rgb2, im_depth = mrenderer2.draw(modelMat, objExtrinsic, objExtrinsic, drawLamp=False, drawBox=False,
                                      linearDepth=True)
         '''
@@ -302,7 +305,7 @@ def main():
 
         imageio.imsave('output/transparent/rendered{:d}.png'.format(i), rgb2)
         '''
-        mwindow.updateWindow()
+        mwindow.update_window()
         # ===================================================
 
     if GUI:

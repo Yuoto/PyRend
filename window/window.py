@@ -1,6 +1,7 @@
 from OpenGL.GL import *
 import glfw
-
+import time
+import numpy as np
 
 class Window:
     def __init__(self,
@@ -19,6 +20,7 @@ class Window:
         self.visible = visible
         self.monitor = monitor
         self.window = self.__set_up_window(self.window_size, window_name, self.monitor)
+        self.curTime = time.time()
 
     def __set_up_window(self, window_size, name, monitor):
         """
@@ -48,14 +50,34 @@ class Window:
             print('Failed to initialize GLFW')
         return glfw.get_monitors()
 
-    def process_input(self):
+    def process_input(mwindow):
         """
         Process inputs of the window, currently handles only the escape key
-        :return: None 
+        :return: None
         """
-        if glfw.get_key(self.window, glfw.KEY_ESCAPE) is glfw.PRESS:
-            glfw.set_window_should_close(self.window, True)
+        # TODO: Check this
+        deltaTime = time.time() - self.curTime
+        self.curTime = time.time()
+
+        if glfw.get_key(mwindow, glfw.KEY_ESCAPE) is glfw.PRESS:
+            glfw.set_window_should_close(mwindow, True)
+
+        camera_speed = 2.5 * deltaTime
+        camera_front = np.array([0,0,-1])
+        camera_up = np.array([0,1,0])
+        if glfw.get_key(mwindow, glfw.KEY_W) == glfw.PRESS:
+            camera_pos += cameraSpeed * camera_front
+        if glfw.get_key(mwindow, glfw.KEY_S) == glfw.PRESS:
+            camera_pos -= cameraSpeed * camera_front
+        if glfw.get_key(mwindow, glfw.KEY_A) == glfw.PRESS:
+            camera_pos -= np.cross(camera_front, camera_up)/np.linalg.norm(np.cross(camera_front, camera_up)) *camera_speed
+        if glfw.get_key(mwindow, glfw.KEY_D) == glfw.PRESS:
+            camera_pos += np.cross(camera_front, camera_up)/np.linalg.norm(np.cross(camera_front, camera_up)) *camera_speed
+
+
         glfw.poll_events()
+        return camera_pos
+
 
     @staticmethod
     def clear_window(color, alpha=1):

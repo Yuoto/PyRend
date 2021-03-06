@@ -33,7 +33,7 @@ def computeBoundingBox(cam, modelMat, extMat, tightBox, scale=(2, 2)):
     halfWidthX = (xMax - xCenter) * scale[0]
     halfWidthY = (yMax - yCenter) * scale[1]
 
-    return checkBoundary(cam, xCenter - halfWidthX, yCenter - halfWidthY, 2 * halfWidthX, 2 * halfWidthY)
+    return checkBoundary(cam, xCenter - halfWidthX, yCenter - halfWidthY, 2 * halfWidthX, 2 * halfWidthY), pixels
 
 
 def crop(im, bb):
