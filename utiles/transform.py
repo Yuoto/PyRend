@@ -3,8 +3,27 @@ import math
 import cv2
 import logging
 
+if __debug__:
+    import sys
+
+    SOPHUS_ROOT = r'D:\MultimediaIClab\AR\Rendering\Sophus\py'
+    sys.path.append(SOPHUS_ROOT)
+
+    import sophus
+    from sophus.se3 import Se3
+    from sophus.so3 import So3
+
 class Pose():
-    def __init__(self,rvec=np.zeros(3), tvec=np.zeros(3), PoseParamModel='axis', isRadian=True):
+
+    Tglc4 = np.array([[1, 0, 0, 0],
+                     [0, -1, 0, 0],
+                     [0, 0, -1, 0],
+                     [0, 0, 0, 1]])
+    Tglc3 = np.array([[1, 0, 0],
+                     [0, -1, 0],
+                     [0, 0, -1]])[np.newaxis, ...]
+
+    def __init__(self,rvec=np.zeros(3), tvec=np.zeros(3), PoseParamModel='axis', isRadian=True, SE3=None, isOpenGL=False):
         """
         All coordinates of the parameters are in OpenCV coordinate system, except for SE3_gl which is in OpenGL coordinate system
         :param rvec:  axis angle (rotational parameter)
@@ -16,9 +35,23 @@ class Pose():
         self.isRadian = isRadian
         self.rvec = rvec
         self.tvec = tvec
-        self.SE3 = self.toSE3()
+
+        if SE3 is not None:
+            self.setSE3(SE3, isOpenGL=isOpenGL)
+        else:
+            self.SE3 = self.toSE3()
+
         self.se3 = self.SE3toParam()
         self.SE3_gl = self.convert_yz_mat(self.SE3)
+
+    def get_SE3_inv(self):
+        R_t = self.SO3.T
+        t_inv = -R_t.dot(self.tvec)
+        _mat = np.ones((4,4))
+        _mat[:3,:3] = R_t
+        _mat[:3,3] = t_inv
+
+        return _mat
 
     @staticmethod
     def convert_yz_mat(mat):
@@ -57,8 +90,6 @@ class Pose():
             self.SE3_gl = self.convert_yz_mat(SE3)
 
         self.SO3 = self.SE3[:3,:3]
-        self.rvec  = cv2.Rodrigues(self.SO3)[0].squeeze()
-        self.tvec  =  self.SE3[:3,3]
         self.se3 = self.SE3toParam()
 
 
@@ -73,12 +104,15 @@ class Pose():
 
         if  np.all(rvec == None) and  np.all(tvec == None):
             self.rvec = self.se3[:3]
+            self.so3 = self.se3[:3]
             self.SE3 = self.__axixToSE3(hasUvec=True)
             self.SE3_gl = self.convert_yz_mat(self.SE3)
         else:
             self.SE3 = self.toSE3()
             self.se3 = self.__SE3Tose3()
-            self.SE3 = self.__axixToSE3(hasUvec=True)
+            temp = self.__axixToSE3(hasUvec=True)
+            assert np.allclose(temp, self.SE3)
+            self.SE3 = temp
             self.SE3_gl = self.convert_yz_mat(self.SE3)
 
 
@@ -169,7 +203,8 @@ class Pose():
 
         itheta = 1. / theta if theta else 0.
         r = rvec * itheta
-        r_x = self.__skew(r)
+        if theta: assert np.allclose(np.linalg.norm(r), 1.)
+        r_x = skew(r)
         c = np.cos(theta)
         s = np.sin(theta)
         rrt = np.array([[r[0] * r[0], r[1] * r[0], r[2] * r[0]],
@@ -178,11 +213,23 @@ class Pose():
         self.SO3 = c * np.eye(3) + (1 - c) * rrt + s * r_x
         self.SO3_gl = self.convert_yz_mat(self.SO3)
 
+        assert np.allclose(SO3, self.SO3)
+
         if hasUvec:
             sinc = np.sin(theta)/theta if theta else 1.
             cosc = (1-np.cos(theta))/theta if theta else 0.
             J = sinc* np.eye(3) + (1-sinc)*rrt + cosc*r_x
             self.tvec = J.dot(self.se3[3:6])
+
+            if __debug__:
+                if np.any(self.se3 != np.zeros(6)):
+                    v = sophus.Vector6(self.se3[3], self.se3[4], self.se3[5], self.se3[0], self.se3[1], self.se3[2])
+                    w = Se3.exp(v)
+                    mat = np.array(w.so3.matrix()._mat).reshape(3, 3).astype(np.float)
+                    tvec = np.array(w.t._mat).astype(np.float)
+
+                    assert np.allclose(self.SO3, mat)
+                    assert np.allclose(self.tvec, tvec)
 
         mat = np.eye(4)
         mat[:3, :3] = self.SO3
@@ -244,35 +291,95 @@ class Pose():
         self.so3 = np.array([lnR[1,2], lnR[2,0], lnR[0,1]])
         return self.so3
     '''
-    def __skew(self, x):
-        return np.array([[0, -x[2], x[1]],
-                     [x[2], 0, -x[0]],
-                     [-x[1], x[0], 0]])
 
     def __SE3Tose3(self):
         """
             Calculate se(3) = [ rvec, uvec] given SE(3)
         :return:
         """
-        #theta = np.arccos((np.trace(self.SO3) - 1) / 2)    Don't know why it is different from  np.linalg.norm(self.rvec)
-        theta = np.linalg.norm(self.rvec)
-        sincInv = theta/(2*np.sin(theta)) if theta else 0.5
-        lnR = sincInv * (self.SO3 - self.SO3.T)
-        self.so3 = np.array([lnR[2, 1], lnR[0, 2], lnR[1, 0]])
+        self.rvec = cv2.Rodrigues(self.SO3)[0].squeeze()
+        self.tvec = self.SE3[:3, 3]
+
+
+        traceR = np.trace(self.SO3)
+        theta = np.arccos((traceR - 1) / 2)
+        # # TODO: 1. from scratch
+        # # https://math.stackexchange.com/questions/83874/efficient-and-accurate-numerical-implementation-of-the-inverse-rodrigues-rotatio
+        # epsilon = 1e-5
+        # r = np.array([self.SO3[2,1]-self.SO3[1,2],self.SO3[0,2]-self.SO3[2,0],self.SO3[1,0]-self.SO3[0,1]])
+
+        # ub = 3-epsilon
+        # lb = -1+epsilon
+        # if traceR >= ub:
+        #     self.so3 = (1/2 - (traceR-3)/12)*r
+        # elif traceR <ub and traceR>lb:
+        #     self.so3 = theta*r / (2 * np.sin(theta))
+        #
+        # elif  traceR<=lb: #seems buggy here when theta == pi
+        #     a = np.diag(self.SO3).argmax()
+        #     b = (a + 1) % 3
+        #     c = (a + 2) % 3
+        #     s = np.sqrt(self.SO3[a, a] - self.SO3[b, b] - self.SO3[c, c] + 1)
+        #     v = np.array(
+        #         [s / 2, 0.5 * (self.SO3[b, a] + self.SO3[a, b]) / s, 0.5 * (self.SO3[c, a] + self.SO3[a, c]) / s])
+        #
+        #     self.so3 = np.pi*v/np.linalg.norm(v)
+        # else:
+        #     raise ValueError
+        #
+        # if __debug__:
+        #     rod = cv2.Rodrigues(self.SO3)[0].squeeze()
+        #     assert np.allclose(self.so3, rod)
+
+        # TODO: 2. still use cv2
+        self.so3 = self.rvec
 
         itheta = 1. / theta if theta else 0.
         r = self.so3 * itheta
-        r_x = self.__skew(r)
+        if theta: assert np.allclose(np.linalg.norm(r), 1.)
+        r_x = skew(r)
         rrt = np.array([[r[0] * r[0], r[1] * r[0], r[2] * r[0]],
                         [r[0] * r[1], r[1] * r[1], r[2] * r[1]],
                         [r[0] * r[2], r[1] * r[2], r[2] * r[2]]])
 
         # J_inv =(theta/2)cot(theta/2) I + (1-(theta/2)cot(theta/2))r*rT - (theta/2)[r_x]
+        # since we can not eval x*cot(x) at x=pi directly, use x*cot(x)= x*cos(x)/sin(x) = cos(x)/sinc instead
         thetaHalf = theta / 2
-        cotthetaH = thetaHalf / np.tan(thetaHalf) if theta else 1.
+        cotthetaH = np.cos(thetaHalf)/np.sinc(thetaHalf/np.pi)
         J_inv = cotthetaH * np.eye(3) + (1 - cotthetaH) * rrt - thetaHalf * r_x
 
         self.se3 = np.hstack((self.so3, np.dot(J_inv, self.tvec)))
+
+        #======== double check =============
+        if __debug__:
+            # This fails when theta = pi, due to the unstability of inverse sinc.
+            # Need to use special methods
+            # lnR = 0.5 * (self.SO3 - self.SO3.T) / np.sinc(theta / np.pi)
+            # so3 = np.array([lnR[2, 1], lnR[0, 2], lnR[1, 0]])
+            # assert np.allclose(so3, self.rvec)
+
+            if np.any(self.se3[:3] != np.zeros(3)):
+                SSO3 = So3.exp(sophus.Vector3(self.rvec[0], self.rvec[1], self.rvec[2]))
+                sSe3 =  Se3(SSO3,  sophus.Vector3(self.tvec[0], self.tvec[1], self.tvec[2]))
+                sse3 = sSe3.log()._mat
+                ssse3 = np.array([sse3[3],sse3[4],sse3[5], sse3[0], sse3[1], sse3[2]]).astype(float)
+                # TODO: decide whether or not use Sophus log map output as gt
+                if not np.allclose(ssse3[:3],self.se3[:3]):
+                    SSO3 = So3.exp(sophus.Vector3(-self.rvec[0], -self.rvec[1], -self.rvec[2]))
+                    sSe3 = Se3(SSO3, sophus.Vector3(self.tvec[0], self.tvec[1], self.tvec[2]))
+                    sse3 = sSe3.log()._mat
+                    ssse3 = np.array([sse3[3], sse3[4], sse3[5], sse3[0], sse3[1], sse3[2]]).astype(float)
+
+                assert np.allclose(self.se3, ssse3)
+
+                # TODO: add this back
+                v = sophus.Vector6(self.se3[3], self.se3[4], self.se3[5],self.se3[0], self.se3[1], self.se3[2])
+                w = Se3.exp(v)
+                mat = np.array(w.so3.matrix()._mat).reshape(3, 3).astype(np.float)
+                tvec = np.array(w.t._mat).astype(np.float)
+                assert np.allclose(self.SO3, mat)
+                assert np.allclose(self.tvec, tvec)
+
 
         return self.se3
 
@@ -303,6 +410,25 @@ def checkPointHomo(vectors):
 
     return vec
 
+def skew(x):
+    return np.array([[0, -x[2], x[1]],
+                 [x[2], 0, -x[0]],
+                 [-x[1], x[0], 0]])
+
+def batch_skew(x):
+    """
+    computes the batched skew symmetric matrix
+    :param x: shape (N,3,1) numpy array
+    :return: shape (N,3,3) numpy array, skew symmetric matrix
+    """
+    O = np.zeros((x.shape[0],1))
+
+    row1 = np.concatenate((O, -x[:,2], x[:,1]),axis=1)
+    row2 = np.concatenate((x[:,2], O, -x[:,0]), axis=1)
+    row3 = np.concatenate((-x[:,1], x[:,0], O), axis=1)
+    out = np.stack((row1, row2, row3), axis=1)
+
+    return out
 
 def kabsch(_3d1, _3d2):
     """
@@ -329,7 +455,11 @@ def kabsch(_3d1, _3d2):
 
 
 
-
+def normalize(v):
+    norm = np.linalg.norm(v)
+    if norm == 0:
+       return v
+    return v / norm
 
 
 
@@ -393,23 +523,30 @@ def main():
     from sophus.se3 import Se3
 
 
-
+    # [uvec, wvec]
     v = sophus.Vector6(0., 1, 0.5, 2., 1, 0.5)
     w = Se3.exp(v)
-    mat = w.so3.matrix()
+    mat = np.array(w.so3.matrix()._mat).reshape(3,3).astype(np.float)
+    tvec = np.array(w.t._mat).astype(np.float)
 
-    SO3 = cv2.Rodrigues(np.array([2., 1, 0.5]))
-
+    SO3 = cv2.Rodrigues(np.array([2., 1, 0.5]))[0]
+    assert np.allclose(SO3,mat)
     #a = Pose(rvec= np.array([2., 1, 0.5]), tvec= np.array([0., 1, 0.5]))
     a = Pose()
     a.se3 = np.array([ 2., 1, 0.5, 0., 1, 0.5,])
     a.update()
+
+
+
     a.se3 += (-np.array([ 2., 1, 0.5, 0., 1, 0.5,]))
     a.update()
     a.se3 += np.array([2., 1, 0.5, 0., 1, 0.5, ])
     a.update()
+
     my_SO3 = a.SE3[:3,:3]
     my_tvec = a.SE3[:3,3]
+    assert np.allclose(my_SO3 , SO3)
+    assert np.allclose(my_tvec , tvec)
 
 
 
