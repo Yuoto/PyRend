@@ -2,7 +2,7 @@ import numpy as np
 import logging
 
 class Camera():
-    def __init__(self, window_size, focal=(None), center=None, distCoeff = None, near=0.01, far=100, depthScale=1):
+    def __init__(self, window_size, focal=(None), center=None, distCoeff = None, near=10, far=10000, depthScale=1, coord_system='opengl'):
         '''
                 Camera class, given base project/ back project functions
         :param window_size: tuple or list (x,y),  size of the window
@@ -21,6 +21,9 @@ class Camera():
         self.near = near
         self.depthScale = depthScale
         self.distCoeff = distCoeff
+        self.pos = np.array([0., 0., -1])
+        self.cam_speed_const = 2.5
+        self.coord_system = coord_system
 
         if focal == None:
             logging.warning('focal not set!')
@@ -73,21 +76,27 @@ class Camera():
 
         camUp = np.cross(camDir, camRight)
 
-        R_inv = np.block([[camRight, 0],
-                          [camUp, 0],
-                          [camDir, 0],
-                          [0, 0, 0, 1]])
-        T_inv = np.block([[1, 0, 0, -eye[0]],
-                          [0, 1, 0, -eye[1]],
-                          [0, 0, 1, -eye[2]],
-                          [0, 0, 0, 1]])
-        return np.dot(R_inv, T_inv)
+        if self.coord_system == 'opengl':
+            # choose opengl camera coordinate  (-z forward, +y up)
+            R_inv = np.block([[camRight, 0],
+                              [camUp, 0],
+                              [camDir, 0],
+                              [0, 0, 0, 1]])
+            T_inv = np.block([[1, 0, 0, -eye[0]],
+                              [0, 1, 0, -eye[1]],
+                              [0, 0, 1, -eye[2]],
+                              [0, 0, 0, 1]])
+        else:
+            raise NotImplementedError
+        return R_inv @ T_inv
 
     def __setOpenGLPerspective(self):
         fx, fy = self.focal
         cx, cy = self.center
         f = self.far
         n = self.near
+        w = self.window_size[0]
+        h = self.window_size[1]
 
         # ==== 1. Ideal symmetry camera
         # Reference: http://kgeorge.github.io/2014/03/08/calculating-opengl-perspective-matrix-from-opencv-intrinsic-matrix
@@ -99,23 +108,45 @@ class Camera():
 
             '''
         # ==== 2. asymmetry camera (with OpenCV calibrated parameters)
-        # https://strawlab.org/2011/11/05/augmented-reality-with-OpenGL/
-        OpenGLperspective = np.array([[2 * fx / self.window_size[0], 0, 1 - 2 * cx / self.window_size[0], 0],
-                                      [0, 2 * fy / self.window_size[1], 2 * cy / self.window_size[1] - 1, 0],
+        # # TODO: This uses window_coords='y down', i.e. flips Y first to get the same coordinate with normal image file
+        # # https://strawlab.org/2011/11/05/augmented-reality-with-OpenGL/
+        OpenGLperspective = np.array([[2 * fx / w, 0, 1 - 2 * cx / w, 0],
+                                      [0, 2 * fy / h, 2 * cy / h - 1, 0],
                                       [0, 0, -(f + n) / (f - n), -2 * f * n / (f - n)],
                                       [0, 0, -1, 0]], dtype=np.float32)
+
+        # # TODO: This assumes opengl world coordinate -> -Y up, z forward
+        # # ==== 3. asymmetry camera, assuming opengl with the same coordinate as opencv
+        # # https://stackoverflow.com/questions/22064084/how-to-create-perspective-projection-matrix-given-focal-points-and-camera-princ/22312303
+        # OpenGLperspective = np.array([[2 * fx / w, 0, 2 * cx / w-1, 0],
+        #                               [0, 2 * fy / h, 2 * cy / h-1, 0],
+        #                               [0, 0, (f + n) / (f - n), 2 * f * n / (n - f)],
+        #                               [0, 0, 1, 0]], dtype=np.float32)
+        #
+        # # TODO: This assumes opengl world coordinate -> Y up, -z forward
+        # # TODO: This uses window_coords='y up', i.e. upside down with normal image file
+        # # ==== 4. asymmetry camera
+        # paper in ECCV2016 region based used
+        # OpenGLperspective = np.array([[2 * fx / w, 0, 1 - 2 * cx / w, 0],
+        #                               [0, -2 * fy / h, 1 - 2 * cy / h, 0],
+        #                               [0, 0, -(f + n) / (f - n), 2 * f * n / (n - f)],
+        #                               [0, 0, -1, 0]], dtype=np.float32)
+
 
         #logging.info('OpenGL Perspective set!')
 
         return OpenGLperspective
 
-    def project(self, points, convertYZ =True):
+    def project(self, points, convertYZ =False):
         """
 
         :param np.array points: Nx3 or Nx4 homogeneous coordinate
         :return:  Nx2 pixels
         """
         cloud = points.copy()
+        if len(cloud.shape) == 3:
+            cloud = cloud.squeeze(axis=2)
+
         # Since we are using openGL coordinate system, the camera is looking at the -Z axis, and the right hand side is +X axis, the up is +Y axis
         #================================================================================#
         #      +Y        #              #      -Y        #              #      -Y        #
@@ -169,16 +200,16 @@ class Camera():
         """
 
         :param depth: N x 1 depth value
-        :param coords: Nx2 pixel coordinate
-        :return: output: Nx3 camera coordinate
+        :param coords: N x 2 pixel coordinate
+        :return: output: N x 3 camera coordinate
         """
         constant_x = 1.0 / self.focal[0]
         constant_y = 1.0 / self.focal[1]
 
         output = np.zeros((len(coords), 3))
-        output[:, 0] = (coords[:, 0] - self.center[0]) * depth * constant_x
-        output[:, 1] = (coords[:, 1] - self.center[1]) * depth * constant_y
-        output[:, 2] = depth
+        output[:, 0] = (coords[:, 0] - self.center[0]) * depth.squeeze() * constant_x
+        output[:, 1] = (coords[:, 1] - self.center[1]) * depth.squeeze() * constant_y
+        output[:, 2] = depth.squeeze()
         return output
 
     '''
