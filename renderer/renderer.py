@@ -7,6 +7,8 @@ import numpy as np
 from shader import Shader
 from model import Model
 import cv2
+if __debug__:
+    import copy
 
 
 float_size = sizeof(c_float)
@@ -315,23 +317,50 @@ class Renderer:
 
 
         depth = gl.glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], gl.GL_DEPTH_COMPONENT, gl.GL_FLOAT)
-        depth = np.flipud(depth.reshape(self.window.window_size[::-1]))
+
+        depth = depth.reshape(self.window.window_size[::-1])
+        depth = np.flipud(depth)
 
 
         imageBuf = gl.glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], gl.GL_RGB, gl.GL_UNSIGNED_BYTE)
         im = np.fromstring(imageBuf, np.uint8)
 
         #This is because of the y axis of the image coordinate system and that of the opencv image layout is inverted
-        rgb = np.flipud(np.reshape(im, (self.window.window_size[1], self.window.window_size[0], 3)))
+        rgb = np.reshape(im, (self.window.window_size[1], self.window.window_size[0], 3))
+        rgb = np.flipud(rgb)
 
-        # Since the value from depth buffer contains non-linear depth ~[0,1], background depth will be cast to 1.
-        mask = depth < 1
+        # Since the value from depth buffer contains non-linear depth ~[0,1], need to linearize
+        # Apply mask s.t background has depth 0
+        # mask = depth < 1
+        # mask = np.logical_or(np.logical_or(rgb[...,0]!=0, rgb[...,1]!=0),rgb[...,2]!=0)
+        # TODO: check this
+        mask = depth < 1.
+        if __debug__:
+            print('before linearize: depth max', depth.max(), 'depth min', depth.min())
+
         if linearDepth:
-            depth = -1*mask*self.__non_linear_depth_2_linear(depth)
+
+            if self.camera.coord_system == 'opengl':
+                vis_depth = copy.deepcopy(depth)
+                cv2.imshow('renderer depth',
+                           cv2.normalize(-vis_depth, -vis_depth, 0, 255, cv2.NORM_MINMAX).astype(np.uint8))
+
+                #TODO: add mask back
+                #TODO: check this ->  # negative sign is added for the sake of -z forward opengl camera coordinate
+                depth =  -self.__non_linear_depth_2_linear(depth)
+                # depth = -1 * self.__non_linear_depth_2_linear(depth)
+                if __debug__:
+                    print('before mask: depth max', depth.max(), 'depth min', depth.min())
+                    depth_masked = depth[mask]
+                    print('filtered depth max', depth_masked.max(), 'depth min', depth_masked.min())
+                    # cv2.imshow('renderer depth',  copy.deepcopy(depth))
+            else:
+                depth = mask * self.__non_linear_depth_2_linear(depth)
+                # print(depth.max())
         else:
             depth = mask*depth
 
-        return rgb,depth
+        return rgb, depth, mask
 
 
 
