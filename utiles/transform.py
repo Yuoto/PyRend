@@ -384,6 +384,103 @@ class Pose():
         return self.se3
 
 
+
+
+
+
+def scaleMatrix(scale):
+    return np.array([[scale[0], 0, 0, 0],
+                     [0, scale[1], 0, 0],
+                     [0, 0, scale[2], 0],
+                     [0, 0, 0, 1]
+                     ], dtype=np.float)
+
+def translationMatrix(tvec):
+    return np.array([[1, 0, 0, tvec[0]],
+                     [0, 1, 0, tvec[1]],
+                     [0, 0, 1, tvec[2]],
+                     [0, 0, 0, 1]
+                     ], dtype=np.float)
+
+def rotationMatrix(angle, axis):
+    angle = (angle / 180) * np.pi
+    s = np.sin(angle)
+    c = np.cos(angle)
+    mc = 1 - c
+
+    len = np.linalg.norm(axis)
+    if (len == 0):
+        return np.eye(4)
+
+    axis = axis/len
+    x = axis[0]
+    y = axis[1]
+    z = axis[2]
+
+    return np.array([[ x * x * mc + c, x * y * mc - z * s, x * z * mc + y * s, 0],
+                     [ x * y * mc + z * s, y * y * mc + c, y * z * mc - x * s, 0],
+                     [ x * z * mc - y * s, y * z * mc + x * s, z * z * mc + c, 0],
+                     [ 0, 0, 0, 1]], dtype=np.float)
+
+def lookAtMatrix(eye=np.array([0,0,1]), at=np.array([0,0,0]), up=np.array([0,1,0])):
+
+    up = up / np.linalg.norm(up)
+    f = (at - eye)
+    f = f / np.linalg.norm(f)
+
+    r = np.cross(f, up)
+    r = r / np.linalg.norm(r)
+
+    u = np.cross(r, f)
+    u = u / np.linalg.norm(u)
+
+    return np.array([[r[0], r[1], r[2], -r @ eye],
+                     [u[0], u[1], u[2], -u @ eye],
+                     [-f[0], -f[1], -f[2], f @ eye],
+                     [0, 0, 0, 1]], dtype=np.float)
+
+def perspectiveMatrix(K, width, height, zNear, zFar, flipY):
+
+    fx = K[0, 0]
+    fy = K[1, 1]
+    cx = K[0, 2]
+    cy = K[1, 2]
+
+    w = width
+    h = height
+    n = zNear
+    f = zFar
+
+    if flipY:
+        return np.array([[2 * fx / w, 0, 1 - 2 * cx / w, 0],
+                         [0, -2 * fy / h, 1 - 2 * cy / h, 0],
+                         [0, 0, (f + n) / (n - f), (2 * f * n) / (n - f)],
+                         [0, 0, -1, 0]], dtype=np.float)
+
+    return np.array([[2 * fx / w, 0, 1 - 2 * cx / w, 0],
+                     [0, 2 * fy / h, 2 * cy / h - 1, 0],
+                     [0, 0, (f + n) / (n - f), (2 * f * n) / (n - f)],
+                     [0, 0, -1, 0]], dtype=np.float)
+
+def perspectiveMatrixAspect(fovy, aspect, zNear, zFar):
+
+    fovy = np.radians(fovy)
+    focal = 1.0 / np.tan(fovy / 2.0)
+    n = zNear
+    f = zFar
+
+    return np.array([[focal/aspect, 0, 0, 0],
+                     [0, focal, 0, 0],
+                     [0, 0, (f + n) / (n - f), (2 * f * n) / (n - f)],
+                     [0, 0, -1, 0]], dtype=np.float)
+
+def negYZMatrix(mat):
+
+    return np.array([[mat[0, 0], mat[0, 1], mat[0, 2], mat[0, 3]],
+                     [-mat[1, 0], -mat[1, 1], -mat[1, 2], -mat[1, 3]],
+                     [-mat[2, 0], -mat[2, 1], -mat[2, 2], -mat[2, 3]],
+                     [mat[3, 0], mat[3, 1], mat[3, 2], mat[3, 3]]], dtype=np.float)
+
 def toHomo(vectors):
     """
     Convert  N x 3 vectors to  4 x N vectors in homogeneous coordinate form

@@ -3,6 +3,7 @@ import os
 from OpenGL.GL import *
 from shader import Shader
 from mesh import Mesh,Texture, PhongParam
+from utiles.transform import translationMatrix, scaleMatrix
 import pyassimp
 import numpy as np
 from ctypes import  c_void_p
@@ -11,36 +12,72 @@ from imageio import imread
 
 class Model:
 
-    def __init__(self, path,window):
-        self.meshes = []
+    def __init__(self, name, path, scale, T_wm=np.eye(4)):
         self.textures_loaded = []
-        self.Xmax = 0
-        self.Xmin = 0
-        self.Ymax = 0
-        self.Ymin = 0
-        self.Zmax = 0
-        self.Zmin = 0
-        self.window=window
-        if path.find('\\'):
-            self.path = path.rsplit('\\', 1)[0]
+        self.meshes = []
+        if path.find('\\'): self.path = path.rsplit('\\', 1)[0]
         self.directory = self.path.rsplit('/', 1)[0]
-        #import time
-        #cur = time.time()
+        self.name = name
+        self.scale = scale
+
+        # pose info
+        self.T_cw = translationMatrix(np.array([0,0,-1]))    # viewMat
+        self.T_wm = T_wm                                    # modelMat
+        self.T_n = scaleMatrix(np.array([self.scale]*3))     # normalizeMat
+
+        self.Xmax = float('-inf')
+        self.Xmin = float('inf')
+        self.Ymax = float('-inf')
+        self.Ymin = float('inf')
+        self.Zmax = float('-inf')
+        self.Zmin = float('inf')
+
+        # loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
         self.__loadModel(path)
         self.sortMeshes()
-        #print("time elasped = {:1.4f}".format(time.time()-cur))
+
+    def __del__(self):
+        pyassimp.release(self.scene)
 
     def __get_directory(self):
         return self.directory
 
 
     def __loadModel(self,  path):
-        scene = pyassimp.load(path,processing= pyassimp.postprocess.aiProcess_FlipUVs | pyassimp.postprocess.aiProcess_Triangulate)
+        # scene = pyassimp.load(path,processing= pyassimp.postprocess.aiProcess_FlipUVs | pyassimp.postprocess.aiProcess_Triangulate)
+        self.scene = pyassimp.load(path, processing=pyassimp.postprocess.aiProcess_Triangulate | \
+                                                    pyassimp.postprocess.aiProcess_GenNormals  | \
+                                                    pyassimp.postprocess.aiProcess_CalcTangentSpace)
 
-        if not scene:
+        if not self.scene:
             print('ERROR::ASSIMP:: cannot load model')
-        self.processNode(scene.rootnode, scene)
+        self.processNode(self.scene.rootnode, self.scene)
 
+
+    def setPoseTcw(self, Tcw):
+        """
+        Set the pose of T world 2 camera space
+        :param Tcw: shape (4,4) numpy array, SE3 transformation
+        """
+        self.T_cw = Tcw
+
+    def setPoseTwm(self, Twm):
+        """
+        Set the pose of T model 2 world space
+        :param Twm: shape (4,4) numpy array, SE3 transformation
+        """
+        self.T_wm = Twm
+
+
+    def getTightBox(self):
+        return np.array([[self.Xmin, self.Ymin, self.Zmin],
+                         [self.Xmin, self.Ymin, self.Zmax],
+                         [self.Xmin, self.Ymax, self.Zmin],
+                         [self.Xmin, self.Ymax, self.Zmax],
+                         [self.Xmax, self.Ymin, self.Zmin],
+                         [self.Xmax, self.Ymin, self.Zmax],
+                         [self.Xmax, self.Ymax, self.Zmin],
+                         [self.Xmax, self.Ymax, self.Zmax]],dtype=np.float)
 
 
     def set_buffer(self,pos, normal, color, tex, indices, mesh_id):
@@ -82,11 +119,9 @@ class Model:
         self.meshes = opacMeshes + transparMeshes
 
 
-    def draw(self,shader, meshBymesh=False):
+    def draw(self,shader):
         for mesh in self.meshes:
             mesh.draw(shader)
-            if meshBymesh:
-                self.window.updateWindow()
 
 
     def processNode(self,node,scene):
@@ -105,19 +140,16 @@ class Model:
         HasText = mesh.texturecoords.any()
         HasFace = mesh.faces != []
         attribute_mask = [HasPos, HasNormal, HasColor, HasText]
-        if self.Xmax < mesh.vertices[:, 0].max():
-            self.Xmax = mesh.vertices[:, 0].max()
-        if self.Xmin > mesh.vertices[:, 0].min():
-            self.Xmin = mesh.vertices[:, 0].min()
-        if self.Ymax < mesh.vertices[:, 1].max():
-            self.Ymax = mesh.vertices[:, 1].max()
-        if self.Ymin > mesh.vertices[:, 1].min():
-            self.Ymin = mesh.vertices[:, 1].min()
-        if self.Zmax < mesh.vertices[:, 2].max():
-            self.Zmax = mesh.vertices[:, 2].max()
-        if self.Zmin > mesh.vertices[:, 2].min():
-            self.Zmin = mesh.vertices[:, 2].min()
-        # for the current mesh, process all the attribut
+
+        # calculate bounding box
+        if self.Xmax < mesh.vertices[:, 0].max(): self.Xmax = mesh.vertices[:, 0].max()
+        if self.Xmin > mesh.vertices[:, 0].min(): self.Xmin = mesh.vertices[:, 0].min()
+        if self.Ymax < mesh.vertices[:, 1].max(): self.Ymax = mesh.vertices[:, 1].max()
+        if self.Ymin > mesh.vertices[:, 1].min(): self.Ymin = mesh.vertices[:, 1].min()
+        if self.Zmax < mesh.vertices[:, 2].max(): self.Zmax = mesh.vertices[:, 2].max()
+        if self.Zmin > mesh.vertices[:, 2].min(): self.Zmin = mesh.vertices[:, 2].min()
+
+        # for the current mesh, process all the attribute
 
         center = np.mean(mesh.vertices,axis=0)
         position = np.reshape(mesh.vertices, -1)
@@ -164,18 +196,35 @@ class Model:
 
 
         for key, value in mat.properties.items():
+            if type(value) == bytes:
+                value=value.decode("utf-8")
             if key == 'ambient':
-                phongParam.Ka = value
+                if type(value) == int:
+                    phongParam.Ka = [value/255.]*3
+                else:
+                    phongParam.Ka = value
             elif key == 'diffuse':
-                phongParam.Kd = value
+                if type(value) == int:
+                    phongParam.Kd = [value/255.]*3
+                else:
+                    phongParam.Kd = value
             elif key == 'specular':
-                phongParam.Ks = value
+                if type(value) == int:
+                    phongParam.Ks = [value/255.]*3
+                else:
+                    phongParam.Ks = value
             elif key == 'shininess':
                 phongParam.Ns = value
             elif key == 'emissive':
-                phongParam.emissive = value
+                if type(value) == int:
+                    phongParam.Ke = [value/255.]*3
+                else:
+                    phongParam.Ke = value
             elif key == 'opacity':
-                phongParam.alpha = value
+                if value == 0:
+                    phongParam.alpha = 1
+                else:
+                    phongParam.alpha = value
             # for maps path
             elif key == 'file':
                 if value.find('_ddn') > 0:

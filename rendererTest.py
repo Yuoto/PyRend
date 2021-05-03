@@ -1,23 +1,27 @@
 import time
 import ctypes
 import sys, os
-import OpenGL.GL as gl
 import imgui
 from imgui.integrations.glfw import GlfwRenderer
 sys.path.append(os.path.dirname(__file__))
-from window.window import Window
-from renderer.renderer import Light, Renderer
-from camera.camera import Camera
-from utiles.transform import setTranslation, toHomo
+from renderer.window import Window
+from renderer.renderer import Renderer
+from renderer.light import Light
+from renderer.model import Model
+from renderer.shader import Shader
+
+
+from renderer.camera import Camera
+from utiles.transform import setTranslation, toHomo, translationMatrix, rotationMatrix, perspectiveMatrix, lookAtMatrix
 import glfw
 import math, random
 import numpy as np
 import cv2
-from ctypes import  sizeof, c_void_p,c_float
 random.seed(0)
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import imageio
+
 
 def getRandomPose(elevationRange, azimuthRange, inplaneRange):
     azimuth = random.uniform(azimuthRange[0], azimuthRange[1])
@@ -88,22 +92,28 @@ def showPointCloud(pcd,axisCamCoord):
 
 def main():
     # Shader info (Use absolute path)
-    vShaderPath = os.path.join(os.path.dirname(__file__),"renderer/shader/rendererShader.vs")
-    fShaderPath = os.path.join(os.path.dirname(__file__),"renderer/shader/rendererShader.fs")
-    vShaderLampPath = os.path.join(os.path.dirname(__file__),"renderer/shader/lamp.vs")
-    fShaderLampPath = os.path.join(os.path.dirname(__file__),"renderer/shader/lamp.fs")
+    # vShaderPath = os.path.join(os.path.dirname(__file__),"renderer/shader/rendererShader.vs")
+    # fShaderPath = os.path.join(os.path.dirname(__file__),"renderer/shader/rendererShader.fs")
+    # vShaderLampPath = os.path.join(os.path.dirname(__file__),"renderer/shader/lamp.vs")
+    # fShaderLampPath = os.path.join(os.path.dirname(__file__),"renderer/shader/lamp.fs")
+    vShaderPath = os.path.join(os.path.dirname(__file__), "renderer/shader/multi_lights.vs")
+    fShaderPath = os.path.join(os.path.dirname(__file__), "renderer/shader/multi_lights.fs")
+    vShaderLampPath = os.path.join(os.path.dirname(__file__), "renderer/shader/lightCube.vs")
+    fShaderLampPath = os.path.join(os.path.dirname(__file__), "renderer/shader/lightCube.fs")
+
+
     vShaderTightBoxPath = os.path.join(os.path.dirname(__file__),"renderer/shader/TightBox.vs")
     fShaderTightBoxPath = os.path.join(os.path.dirname(__file__),"renderer/shader/TightBox.fs")
-    vShaderGyoPath = os.path.join(os.path.dirname(__file__), "renderer/shader/gyo.vs")
-    fShaderGyoPath = os.path.join(os.path.dirname(__file__), "renderer/shader/gyo.fs")
+    # vShaderGyoPath = os.path.join(os.path.dirname(__file__), "renderer/shader/gyo.vs")
+    # fShaderGyoPath = os.path.join(os.path.dirname(__file__), "renderer/shader/gyo.fs")
 
     # Model info
     #modelPath = '/home/yuoto/AR/estimation/models/obj_02.ply'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack_dataset/data/models/dragon/geometry.ply'
-    modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\CAD\demo_surgery_head_surface_printed.obj'
+    # modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\CAD\demo_surgery_head_surface_printed.obj'
     #modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\Checkpoint1\testAruco\data\dodeca_Only_Yup.obj'
     #modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\CAD\test.obj'
-
+    modelPath = r'D:\MultimediaIClab\AR\Rendering\PyRend\dragon_res2.obj'
     #modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
@@ -117,87 +127,103 @@ def main():
     #modelPath = 'D:\MultimediaIClab\AR\Rendering\sss.obj'
 
     # Setup Imgui context
+
+    flirIntrinsic = np.array([
+        [2.58397003e+03, 0., 6.80406665e+02],
+        [0., 2.59629026e+03, 4.96856500e+02],
+        [0., 0., 1.]], dtype=np.float32)
+    flirDistortion = np.array(
+        [-4.0397944508415173e-01, 6.2053493009322680e-01, 2.5890572913194530e-03, -1.9067252961622230e-03,
+         -1.3223649399122224e+00])
+
     GUI = False
     if GUI:
         imgui.create_context()
 
     # Window
-    SCR_WIDTH = 960
-    SCR_HEIGHT = 540
+    SCR_WIDTH = 1280
+    SCR_HEIGHT = 1024
 
-    mwindow = Window(window_size=(SCR_WIDTH, SCR_HEIGHT), window_name='Renderer Test', visible=True)
+
+    # 1. create window
+    mwindow = Window(width=SCR_WIDTH, height=SCR_HEIGHT, name='Renderer Test', visible=True)
     if GUI:
         app_window = GlfwRenderer(mwindow.window)
 
-    # Light info
-    mlight1 = Light()
+    # 2. create shaders
+    modelShader = Shader(vShaderPath, fShaderPath)
+    lightCubeShader = Shader(vShaderLampPath, fShaderLampPath)
 
-    # Camera info
-    focal = (540.685, 540.685)
-    center = (479.75, 269.75)
+    # 3. create lights
+    ambient = np.array([0.1, 0.1, 0.1])
+    lights = []
+    lights.append(Light(position=[-100., 0., 0.], ambient=ambient))
+    lights.append(Light(position=[100., 0., 0.], ambient=ambient))
+    lights.append(Light(position=[0., -100., 0.], ambient=ambient))
+    lights.append(Light(position=[0., 100., 0.], ambient=ambient))
+    lights.append(Light(position=[0., 0., -100.], ambient=ambient))
+    lights.append(Light(position=[0., 0., 400.], ambient=ambient))
 
+    # 4. create models
+    models = []
+    models.append(Model(name="dragon", path=r"D:\MultimediaIClab\AR\Rendering\PyRend\dragon_res2.obj", scale=1000.))
 
-    mcam1 = Camera([SCR_WIDTH, SCR_HEIGHT], focal, center, near = 0.01,far = 100)
+    # 5. create camera
+    mcam1 = Camera(position=np.array([0., 0., 1000.]), width=SCR_WIDTH, height=SCR_HEIGHT, K=flirIntrinsic, distCoeff=flirDistortion, near=10., far=10000.)
 
-    mrenderer = Renderer(mlight1, mcam1, mwindow, modelPath, vShaderPath, fShaderPath, vShaderLampPath,
-                          fShaderLampPath,
-                          vShaderTightBoxPath, fShaderTightBoxPath)
-    '''
-    mrenderer1 = Renderer(mlight1, mcam1, mwindow, modelPath1, vShaderPath, fShaderPath, vShaderLampPath, fShaderLampPath,
-                         vShaderTightBoxPath, fShaderTightBoxPath)
-    mrenderer2 = Renderer(mlight1, mcam1, mwindow, modelPath2, vShaderPath, fShaderPath, vShaderLampPath, fShaderLampPath,
-                         vShaderTightBoxPath, fShaderTightBoxPath)
-    '''
+    # 6. create renderer engine
+    mrenderer = Renderer(window=mwindow,  models=models, lights=lights, camera=mcam1, modelShader=modelShader, lightCubeShader=lightCubeShader)
+
     #v = mrenderer.get_vertex_buffer(attribute='position').reshape((-1, 3))
 
 
     #for i in range(200):
-    while not glfw.window_should_close(mwindow.window):
+    while not glfw.window_should_close(mwindow.glfwWindow):
+
         # gui set up
         if GUI:
             imgui.new_frame()
 
         # inputs
-        glfw.poll_events()
+        mwindow.processInput()
         if GUI:
             app_window.process_inputs()
-        mwindow.clear_window((0., 0., 0.))
 
+        # render
+        # ------
+        # 7. clear renderer buffer
+        mrenderer.clearWindow((0.2, 0.2, 0.2))
 
-        curT = time.time()
+        # curT = time.time()
 
-        ceta = math.radians(curT * 1000)
-
-
-        azimuth = np.radians(ceta)
-        elevation = np.radians(0)
+        # ceta = math.radians(curT * 1000)
+        # azimuth = np.radians(45)
+        # elevation = np.radians(0)
 
         #azimuth = np.pi*(np.sin(ceta))
         #elevation = np.pi*(np.sin(ceta/2))
 
-        light_radius = 1
-        light_ceta =  math.radians(50*curT)
-        lightPos = np.array([light_radius * np.cos(light_ceta) * np.cos(light_ceta), light_radius * np.sin(light_ceta) + 0.15,
-                             light_radius * np.cos(light_ceta) * np.sin(light_ceta)])
-        radius = 0.4
+        # radius = 1
 
         # ================================================================================================================
         # Usually, when using outside-in tracking (i.e. concerning about object pose), the camera is always located at the center
         # However if we were to do view point sampling, it is better to treat the object at the center and all we concern about is the camera pose
         # At that time, camera position has to be defined (better using spherical coordinate
-        camPos = np.array([radius*np.cos(elevation)*np.sin(azimuth), radius*np.sin(elevation), radius*np.cos(elevation)*np.cos(azimuth)])
+        # camPos = np.array([radius*np.cos(elevation)*np.sin(azimuth), radius*np.sin(elevation), radius*np.cos(elevation)*np.cos(azimuth)])
+        # camPos = np.array([0, 0, 1000.])
 
+        # 8. set camera view Tcw and per model Tcw, Twm
+        mcam1.view = mcam1.GetCameraViewMatrix()
+        rot = rotationMatrix(30, np.array([0, 1, 0]))
+        trans = translationMatrix(np.array([50, -100, 0]))
+        Twm = trans @ rot
 
-        # set model pose & draw
-
-
-        # Dataset 3D model scale (m)
-        modelScale = 0.001
-        modelMat = np.diag(3 * [modelScale] + [1.])
+        for m in models:
+             m.setPoseTwm(Twm)
+             m.setPoseTcw(mcam1.view)
 
         # ==============================================================================================
         # When sampling viewpoints, model is always at the origin, and hence object pose is not needed
-
         #v = mrenderer.get_vertex_buffer(attribute='position', mesh_id=None)
         #v = v + v*(np.sin(ceta))/10
         #mrenderer.set_vertex_buffer(pos = v)
@@ -209,35 +235,22 @@ def main():
         #modelTrans = np.array([0, 0, 0])
         #objExtrinsic = toExtMat(modelRot, modelTrans, PoseParameterModel='Eulerzyx', isRadian=True)
 
-
-        objExtrinsic = mcam1.GetCameraViewMatrix(up=[0, 1, 0], eye=camPos, at=[0, 0, 0], inplane=np.radians(0),isRadian=True)
-        modelMat = setTranslation(modelMat,np.array([0, 0, 0]))
-
-
-        # set light properties (remember to call update_light())
-        mlight1.setStrength(0.35)
-        mlight1.setColor(3 * [1.])
-        mlight1.setAttenuation(True)
-        mlight1.setDirectional(True)
-        mlight1.setPos(objExtrinsic.dot(np.concatenate((lightPos,np.ones(1)))))
-        mrenderer.update_light()
-
-
-
-        '''
-        rgb1, im_depth = mrenderer1.draw(modelMat, objExtrinsic, objExtrinsic, drawLamp=False, drawBox=False, linearDepth=True)
-        mwindow.clear_window((0.3, 0.3, 0.3))
-        rgb2, im_depth = mrenderer2.draw(modelMat, objExtrinsic, objExtrinsic, drawLamp=False, drawBox=False,
-                                     linearDepth=True)
-        '''
         # ===========================
         #   Caution: need to clarify what camera coordinate is the extrinsic matrix transformed to
         #   If OpenCV pose estimation is used, than the camera coordinate is  z forward/ -Y up, then no convertYZ is needed
         #   If OpenGL is used to render (and ext mat transformed to coordinate to opencv cam), then it requires the camera coordinate to be -z forward/ Y up, hence a convertYZ is needed
         #  Also, Y up, -z forward  3D object file format is needed (or there is a need for axis conversion)
         # ===========================
-        rgb, im_depth = mrenderer.draw(modelMat, objExtrinsic, objExtrinsic, drawLamp=False, drawBox=False,
-                                     linearDepth=True)
+        # rgb, im_depth = mrenderer.draw(Twm@modelMat, Tcw, Tcw, drawLamp=False, drawBox=False,
+        #                              linearDepth=True)
+
+        # 9. renderShaded & download map
+        mrenderer.renderShaded()
+        mrenderer.renderLight(np.array([8., 20., 8.]))
+
+        # 10. update glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        # -------------------------------------------------------------------------------
+        mwindow.updateWindow()
 
         '''
          #===========================
@@ -305,7 +318,6 @@ def main():
 
         imageio.imsave('output/transparent/rendered{:d}.png'.format(i), rgb2)
         '''
-        mwindow.update_window()
         # ===================================================
 
     if GUI:

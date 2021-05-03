@@ -1,130 +1,184 @@
 import sys,os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import glfw
 import OpenGL.GL as gl
 from ctypes import  sizeof, c_void_p,c_float
 import numpy as np
-from shader import Shader
-from model import Model
 import cv2
-if __debug__:
-    import copy
-
+from utiles.transform import translationMatrix, scaleMatrix
 
 float_size = sizeof(c_float)
 
 
 
-
-
-class Light:
-    def __init__(self, lightPos=[0,0,3.0], lightColor=[1.0,1.0,1.0], lightStrength=0.5, lightConstant=1, lightLinear=0.0014, lightQuadratic=0.000007, Directional=True, Attenuation = True):
-        '''
-
-        :param lightPos: translation of the light
-        :param lightColor: [r,g,b] color of the light, with a default value of [1.0, 1.0, 1.0] representing white light
-
-        credit to: https://learnopengl.com/Lighting/Materials
-        :param lightStrength: Strength of the light (independent of the model's material), ranged from 0~1
-        :param lightConstant:
-        :param lightLinear:
-        :param lightQuadratic:
-        :param Directional: Enable Directional light
-        :param Attenuation: Enable Attenuation
-        '''
-        self.lightPos = lightPos
-        self.lightColor = lightColor
-        self.lightConstant = lightConstant
-        self.lightLinear = lightLinear
-        self.lightQuadratic = lightQuadratic
-        self.enableDirectional = Directional
-        self.enableAttenuation = Attenuation
-        self.lightStrength = lightStrength
-
-    def setPos(self,Pos):
-        self.lightPos = Pos
-
-    def setConstant(self,lightConstant):
-        self.lightConstant = lightConstant
-
-    def setLinear(self,lightLinear):
-        self.lightLinear = lightLinear
-
-    def setQuadratic(self,lightQuadratic):
-        self.lightQuadratic = lightQuadratic
-
-    def setColor(self,color):
-        self.lightColor = color
-
-    def setStrength(self,strength):
-        self.lightStrength = strength
-
-    def setDirectional(self, Directional):
-        self.enableDirectional = Directional
-
-    def setAttenuation(self, Attenuation):
-        self.enableAttenuation = Attenuation
-
-
 class Renderer:
-    def __init__(self,light,camera,window, modelPath, vShaderPath,fShaderPath,vShaderLampPath,fShaderLampPath,vShaderTightBoxPath,fShaderTightBoxPath):
+    def __init__(self, window, models, lights, camera, modelShader, lightCubeShader):
+
+        self.window = window
+
+        self._models = models
+        self._lights = lights
 
         self.camera = camera
-        self.window = window
-        self.light = light
-        self.__modelShader = Shader(vShaderPath,fShaderPath)
-        self.__lampShader = Shader(vShaderLampPath, fShaderLampPath)
-        self.__tightBoxShader = Shader(vShaderTightBoxPath, fShaderTightBoxPath)
-        self.__3dModel = Model(modelPath,window)
-        self.__lampVertices = np.array([-0.5, -0.5, -0.5, 0, 0, -1, 0, 0,
-                      0.5, -0.5, -0.5, 0, 0, -1, 1, 0,
-                      0.5, 0.5, -0.5, 0, 0, -1, 1, 1,
-                      0.5, 0.5, -0.5, 0, 0, -1, 1, 1,
-                      -0.5, 0.5, -0.5, 0, 0, -1, 0, 1,
-                      -0.5, -0.5, -0.5, 0, 0, -1, 0, 0,
 
-                      -0.5, -0.5, 0.5, 0, 0, 1, 0, 0,
-                      0.5, -0.5, 0.5, 0, 0, 1, 1, 0,
-                      0.5, 0.5, 0.5, 0, 0, 1, 1, 1,
-                      0.5, 0.5, 0.5, 0, 0, 1, 1, 1,
-                      -0.5, 0.5, 0.5, 0, 0, 1, 0, 1,
-                      -0.5, -0.5, 0.5, 0, 0, 1, 0, 0,
+        self._modelShader = modelShader
+        self._lightCubeShader = lightCubeShader
+        # self._lightCubeShader = Shader(vShaderLampPath, fShaderLampPath)
+        # self._modelShader = Shader(vShaderPath, fShaderPath)
+        # self.__tightBoxShader = Shader(vShaderTightBoxPath, fShaderTightBoxPath)
 
-                      -0.5, 0.5, 0.5, -1, 0, 0, 1, 0,
-                      -0.5, 0.5, -0.5, -1, 0, 0, 1, 1,
-                      -0.5, -0.5, -0.5, -1, 0, 0, 0, 1,
-                      -0.5, -0.5, -0.5, -1, 0, 0, 0, 1,
-                      -0.5, -0.5, 0.5, -1, 0, 0, 0, 0,
-                      -0.5, 0.5, 0.5, -1, 0, 0, 1, 0,
+        self._rendererWidth = None
+        self._rendererHeight = None
+        self.setWidthHeight(self.window.width, self.window.height)
 
-                      0.5, 0.5, 0.5, 1, 0, 0, 1, 0,
-                      0.5, 0.5, -0.5, 1, 0, 0, 1, 1,
-                      0.5, -0.5, -0.5, 1, 0, 0, 0, 1,
-                      0.5, -0.5, -0.5, 1, 0, 0, 0, 1,
-                      0.5, -0.5, 0.5, 1, 0, 0, 0, 0,
-                      0.5, 0.5, 0.5, 1, 0, 0, 1, 0,
 
-                      -0.5, -0.5, -0.5, 0, -1, 0, 0, 1,
-                      0.5, -0.5, -0.5, 0, -1, 0, 1, 1,
-                      0.5, -0.5, 0.5, 0, -1, 0, 1, 0,
-                      0.5, -0.5, 0.5, 0, -1, 0, 1, 0,
-                      -0.5, -0.5, 0.5, 0, -1, 0, 0, 0,
-                      -0.5, -0.5, -0.5, 0, -1, 0, 0, 1,
+        self.__pointLightVertices = np.array(\
+            [-0.5, -0.5, -0.5,
+              0.5, -0.5, -0.5,
+              0.5, 0.5, -0.5,
+              0.5, 0.5, -0.5,
+              -0.5, 0.5, -0.5,
+              -0.5, -0.5, -0.5,
 
-                      -0.5, 0.5, -0.5, 0, 1, 0, 0, 1,
-                      0.5, 0.5, -0.5, 0, 1, 0, 1, 1,
-                      0.5, 0.5, 0.5, 0, 1, 0, 1, 0,
-                      0.5, 0.5, 0.5, 0, 1, 0, 1, 0,
-                      -0.5, 0.5, 0.5, 0, 1, 0, 0, 0,
-                      -0.5, 0.5, -0.5, 0, 1, 0, 0, 1
-                      ], dtype=np.float32)
-        self.__3DTightBoxVertices = self.get3DTightBox()
-        self.__vboTightBox, self.__vaoTightBox = self.__setup_3D_tightbox()
-        self.__vboLamp, self.__vaoLamp = self.__setup_lamp(self.__lampVertices)
+              -0.5, -0.5, 0.5,
+              0.5, -0.5, 0.5,
+              0.5, 0.5, 0.5,
+              0.5, 0.5, 0.5,
+              -0.5, 0.5, 0.5,
+              -0.5, -0.5, 0.5,
+
+              -0.5, 0.5, 0.5,
+              -0.5, 0.5, -0.5,
+              -0.5, -0.5, -0.5,
+              -0.5, -0.5, -0.5,
+              -0.5, -0.5, 0.5,
+              -0.5, 0.5, 0.5,
+
+              0.5, 0.5, 0.5,
+              0.5, 0.5, -0.5,
+              0.5, -0.5, -0.5,
+              0.5, -0.5, -0.5,
+              0.5, -0.5, 0.5,
+              0.5, 0.5, 0.5,
+
+              -0.5, -0.5, -0.5,
+              0.5, -0.5, -0.5,
+              0.5, -0.5, 0.5,
+              0.5, -0.5, 0.5,
+              -0.5, -0.5, 0.5,
+              -0.5, -0.5, -0.5,
+
+              -0.5, 0.5, -0.5,
+              0.5, 0.5, -0.5,
+              0.5, 0.5, 0.5,
+              0.5, 0.5, 0.5,
+              -0.5, 0.5, 0.5,
+              -0.5, 0.5, -0.5], dtype=np.float32)
+
+
+        # self.__3DTightBoxVertices = self.get3DTightBox()
+        # self.__vboTightBox, self.__vaoTightBox = self.__setup_3D_tightbox()
+        self.__vboLamp, self.__vaoLamp = self.__setupLight()
+
+
         self.setup_blending()
-        self.update_light()
 
-    def setup_blending(self, FaceCull=False,Blend=True,DepthFunc='GL_LEQUAL',DepthTest=True,MultiSample=True):
+        #TODO: deal with the problem if the attributes of one of the lights are changed
+        # self.update_light()
+
+    @staticmethod
+    def clearWindow(color, alpha=1, depth=1.):
+        """
+        Clear window with specific values
+        :param color: RGB tuple/list/array
+        :param alpha: [0,1] alpha value
+        :return: None
+        """
+        gl.glClearColor(color[0], color[1], color[2], alpha)
+        gl.glClearDepth(depth)
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+
+    def downloadFrame(self, type, flipOn=True):
+
+        if type == "MASK":
+            frame = gl.glReadPixels(0, 0, self._rendererWidth, self._rendererHeight, gl.GL_RED, gl.GL_UNSIGNED_BYTE)
+            frame = np.fromstring(frame, np.uint8)
+            #TODO: merge this
+            frame = frame.reshape(self._rendererHeight, self._rendererWidth)
+
+        elif type == "BGR":
+            frame = gl.glReadPixels(0, 0, self._rendererWidth, self._rendererHeight, gl.GL_BGR, gl.GL_UNSIGNED_BYTE)
+            frame = np.fromstring(frame, np.uint8)
+            frame = frame.reshape(self._rendererHeight, self._rendererWidth, 3)
+
+        elif type == "DEPTH":
+            frame = gl.glReadPixels(0, 0, self._rendererWidth, self._rendererHeight, gl.GL_DEPTH_COMPONENT, gl.GL_FLOAT)
+            frame = frame.reshape((self._rendererHeight, self._rendererWidth))
+
+        else:
+            frame = np.zeros((self._rendererHeight, self._rendererWidth), dtype=np.uint8)
+
+        if flipOn:
+            frame = np.flipud(frame)
+
+        return frame
+
+    def renderShaded(self):
+        gl.glViewport(0, 0, self._rendererWidth, self._rendererHeight)
+
+        # setup the same shader
+        self._modelShader.use()
+        self._modelShader.setVec3("viewPos", self.camera.position)
+        self._modelShader.setFloat("material.shininess", 32.0)
+
+        # direction light
+        self._modelShader.setVec3("dirLight.direction", np.array([-0.2, -1.0, -0.3]))
+        self._modelShader.setVec3("dirLight.ambient", np.array([0.05, 0.05, 0.05]))
+        self._modelShader.setVec3("dirLight.diffuse", np.array([0.4, 0.4, 0.4]))
+        self._modelShader.setVec3("dirLight.specular", np.array([0.5, 0.5, 0.5]))
+
+        # setup the lightings of the model shader
+        for id, light in enumerate(self._lights):
+            # point lights
+            self._modelShader.setVec3("pointLights[{:d}].position".format(id), light.position)
+            self._modelShader.setVec3("pointLights[{:d}].ambient".format(id), light.ambient)
+            self._modelShader.setVec3("pointLights[{:d}].diffuse".format(id), light.diffuse)
+            self._modelShader.setVec3("pointLights[{:d}].specular".format(id), light.specular)
+            self._modelShader.setFloat("pointLights[{:d}].constant".format(id), light.constant)
+            self._modelShader.setFloat("pointLights[{:d}].linear".format(id), light.linear)
+            self._modelShader.setFloat("pointLights[{:d}].quadratic".format(id), light.quadratic)
+
+        # for each model, setup the transformations
+        for model in self._models:
+            # setup shader of the model
+            self._modelShader.setMat4("projection", self.camera.perspective)
+            self._modelShader.setMat4("view", model.T_cw)
+
+            # world transformation
+            self._modelShader.setMat4("model", model.T_wm @ model.T_n)
+
+            model.draw(self._modelShader)
+
+
+    def renderSilhouette(self):
+        pass
+
+    def renderLight(self, scale):
+        self._lightCubeShader.use()
+        for light in self._lights:
+            gl.glBindVertexArray(self.__vaoLamp)
+            self._lightCubeShader.setVec3("color", light.diffuse)
+            self._lightCubeShader.setMat4("model", translationMatrix(light.position) @ scaleMatrix(scale))
+            self._lightCubeShader.setMat4("projection", self.camera.perspective)
+            self._lightCubeShader.setMat4("view", self.camera.view)
+            gl.glDrawArrays(gl.GL_TRIANGLES, 0, 36)
+
+
+    def setWidthHeight(self, width, height):
+        self._rendererWidth = width
+        self._rendererHeight = height
+
+
+    def setup_blending(self, FaceCull=False,Blend=False,DepthFunc='GL_LEQUAL',DepthTest=True,MultiSample=True):
         # Enable depth test and blend
         if Blend:
             gl.glEnable(gl.GL_BLEND)
@@ -150,6 +204,7 @@ class Renderer:
             gl.glEnable(gl.GL_CULL_FACE)
             gl.glCullFace(gl.GL_BACK)
 
+    '''
     def __setup_3D_tightbox(self):
         vbo_TightBox = gl.glGenBuffers(1)
         vao_TightBox = gl.glGenVertexArrays(1)
@@ -187,45 +242,47 @@ class Renderer:
         gl.glEnableVertexAttribArray(0)
 
         return vbo_TightBox, vao_TightBox
+    '''
 
-    def __setup_lamp(self,lamp_vertices):
+    def __setupLight(self):
         # Buffer setting for Lamp
         vbo_lamp = gl.glGenBuffers(1)
         vao_lamp = gl.glGenVertexArrays(1)
         gl.glBindVertexArray(vao_lamp)
 
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_lamp)
-        gl.glBufferData(gl.GL_ARRAY_BUFFER, lamp_vertices, gl.GL_STATIC_DRAW)
-        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 8 * float_size, c_void_p(0))
+        gl.glBufferData(gl.GL_ARRAY_BUFFER, self.__pointLightVertices, gl.GL_STATIC_DRAW)
+        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 3 * float_size, c_void_p(0))
         gl.glEnableVertexAttribArray(0)
 
         return vbo_lamp, vao_lamp
 
-    def get3DTightBox(self):
-        _3DBox = np.zeros([8, 3], dtype=np.float32)
-        _3DBox[0] = [self.__3dModel.Xmin, self.__3dModel.Ymin, self.__3dModel.Zmin]
-        _3DBox[1] = [self.__3dModel.Xmin, self.__3dModel.Ymin, self.__3dModel.Zmax]
-        _3DBox[2] = [self.__3dModel.Xmin, self.__3dModel.Ymax, self.__3dModel.Zmin]
-        _3DBox[3] = [self.__3dModel.Xmin, self.__3dModel.Ymax, self.__3dModel.Zmax]
-        _3DBox[4] = [self.__3dModel.Xmax, self.__3dModel.Ymin, self.__3dModel.Zmin]
-        _3DBox[5] = [self.__3dModel.Xmax, self.__3dModel.Ymin, self.__3dModel.Zmax]
-        _3DBox[6] = [self.__3dModel.Xmax, self.__3dModel.Ymax, self.__3dModel.Zmin]
-        _3DBox[7] = [self.__3dModel.Xmax, self.__3dModel.Ymax, self.__3dModel.Zmax]
 
-        return _3DBox
+    # def get3DTightBox(self):
+    #     _3DBox = np.zeros([8, 3], dtype=np.float32)
+    #     _3DBox[0] = [self.__3dModel.Xmin, self.__3dModel.Ymin, self.__3dModel.Zmin]
+    #     _3DBox[1] = [self.__3dModel.Xmin, self.__3dModel.Ymin, self.__3dModel.Zmax]
+    #     _3DBox[2] = [self.__3dModel.Xmin, self.__3dModel.Ymax, self.__3dModel.Zmin]
+    #     _3DBox[3] = [self.__3dModel.Xmin, self.__3dModel.Ymax, self.__3dModel.Zmax]
+    #     _3DBox[4] = [self.__3dModel.Xmax, self.__3dModel.Ymin, self.__3dModel.Zmin]
+    #     _3DBox[5] = [self.__3dModel.Xmax, self.__3dModel.Ymin, self.__3dModel.Zmax]
+    #     _3DBox[6] = [self.__3dModel.Xmax, self.__3dModel.Ymax, self.__3dModel.Zmin]
+    #     _3DBox[7] = [self.__3dModel.Xmax, self.__3dModel.Ymax, self.__3dModel.Zmax]
+    #
+    #     return _3DBox
 
-    def update_light(self):
-        # set the light shader
-        self.__modelShader.use()
-        self.__modelShader.setBool('light.enableDirectional', self.light.enableDirectional)
-        self.__modelShader.setBool('light.enableAttenuation', self.light.enableAttenuation)
-
-        self.__modelShader.setVec3('light.position', self.light.lightPos)
-        self.__modelShader.setFloat('light.constant', self.light.lightConstant)
-        self.__modelShader.setFloat('light.linear', self.light.lightLinear)
-        self.__modelShader.setFloat('light.quadratic', self.light.lightQuadratic)
-        self.__modelShader.setFloat('light.strength', self.light.lightStrength)
-        self.__modelShader.setVec3('light.color', self.light.lightColor)
+    # def update_light(self, light):
+    #     # set the light shader
+    #     self._modelShader.use()
+    #     self._modelShader.setBool('light.enableDirectional', light.enableDirectional)
+    #     self._modelShader.setBool('light.enableAttenuation', light.enableAttenuation)
+    #     self._modelShader.setVec3('light.position', light.position)
+    #     self._modelShader.setFloat('light.constant', light.constant)
+    #     self._modelShader.setFloat('light.linear', light.linear)
+    #     self._modelShader.setFloat('light.quadratic', light.quadratic)
+    #     self._modelShader.setVec3('light.ambient', light.ambient)
+    #     self._modelShader.setVec3('light.diffuse', light.diffuse)
+    #     self._modelShader.setVec3('light.specular', light.specular)
 
 
 
@@ -271,110 +328,151 @@ class Renderer:
         n = self.camera.near
         ndc_depth = 2*depth-1
 
-        return ((2.0 * n * f) / (f + n - ndc_depth * (f - n)))
+        return (2.0 * n * f) / (f + n - ndc_depth * (f - n))
 
 
-    def set_vertex_buffer(self, pos=None, normal=None, color=None, tex=None, indices=np.array([]), mesh_id = None):
-        """
-        :param vertices: the format for N vertices stored in buffer is in a non-interleaving form:
-         [v1.pos,.... vN.pos, v1.normal, ... ,vN.normal, v1.color, ...vN.color, v1.tex, ... vN.tex]
-         Note that both position & Normal have 3 channels (x,y,z),(Nx,Ny,Nz), color has 4 channels (r,g,b,a), texture has 2 (u,v).
-        :return: None
-        """
-        self.__3dModel.set_buffer(pos, normal, color, tex, indices, mesh_id)
+    # def set_vertex_buffer(self, pos=None, normal=None, color=None, tex=None, indices=np.array([]), mesh_id = None):
+    #     """
+    #     :param vertices: the format for N vertices stored in buffer is in a non-interleaving form:
+    #      [v1.pos,.... vN.pos, v1.normal, ... ,vN.normal, v1.color, ...vN.color, v1.tex, ... vN.tex]
+    #      Note that both position & Normal have 3 channels (x,y,z),(Nx,Ny,Nz), color has 4 channels (r,g,b,a), texture has 2 (u,v).
+    #     :return: None
+    #     """
+    #     self.__3dModel.set_buffer(pos, normal, color, tex, indices, mesh_id)
 
-    def get_vertex_buffer(self, attribute='position', mesh_id = None):
-        """
-
-        :param attribute: choose any attribute from position/normal/color/textureCoord/indices
-        :param mesh_id: what mesh id to be edit
-        :return:
-        """
-        return self.__3dModel.get_buffer_data(attribute,mesh_id)
-
-    def draw(self, model, modelExtrinsic,lightExtrinsic,drawLamp=True, drawBox=False, meshBymesh=False, color=[255,255,255], linearDepth=False):
-        """
-
-        :param model: model matrix (model space transformation matrix)
-        :param modelExtrinsic: Extrinsic matrix of the model
-        :param lightExtrinsic: Extrinsic matrix of the light source
-        :param drawLamp: enable lamp drawing
-        :param drawBox: enable box drawing
-        :param color: color of the box
-        :param linearDepth: enable linear depth (which is a must for correct groundtruth)
-        :return: rgb, depth
-        """
-
-        self.__setModelPose(model,modelExtrinsic)
-        self.__3dModel.draw(self.__modelShader, meshBymesh)
-        if drawLamp:
-            self.__drawLamp(lightExtrinsic)
-
-        if drawBox:
-            self.__draw_box(model, modelExtrinsic, color)
-
-        #self.window.updateWindow()
-
-
-        depth = gl.glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], gl.GL_DEPTH_COMPONENT, gl.GL_FLOAT)
-
-        depth = depth.reshape(self.window.window_size[::-1])
-        depth = np.flipud(depth)
-
-
-        imageBuf = gl.glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], gl.GL_RGB, gl.GL_UNSIGNED_BYTE)
-        im = np.fromstring(imageBuf, np.uint8)
-
-        #This is because of the y axis of the image coordinate system and that of the opencv image layout is inverted
-        rgb = np.reshape(im, (self.window.window_size[1], self.window.window_size[0], 3))
-        rgb = np.flipud(rgb)
-
-        # Since the value from depth buffer contains non-linear depth ~[0,1], need to linearize
-        # Apply mask s.t background has depth 0
-        # mask = depth < 1
-        # mask = np.logical_or(np.logical_or(rgb[...,0]!=0, rgb[...,1]!=0),rgb[...,2]!=0)
-        # TODO: check this
-        mask = depth < 1.
-        if __debug__:
-            print('before linearize: depth max', depth.max(), 'depth min', depth.min())
-
-        if linearDepth:
-
-            if self.camera.coord_system == 'opengl':
-                vis_depth = copy.deepcopy(depth)
-                cv2.imshow('renderer depth',
-                           cv2.normalize(-vis_depth, -vis_depth, 0, 255, cv2.NORM_MINMAX).astype(np.uint8))
-
-                #TODO: add mask back
-                #TODO: check this ->  # negative sign is added for the sake of -z forward opengl camera coordinate
-                depth =  -self.__non_linear_depth_2_linear(depth)
-                # depth = -1 * self.__non_linear_depth_2_linear(depth)
-                if __debug__:
-                    print('before mask: depth max', depth.max(), 'depth min', depth.min())
-                    depth_masked = depth[mask]
-                    print('filtered depth max', depth_masked.max(), 'depth min', depth_masked.min())
-                    # cv2.imshow('renderer depth',  copy.deepcopy(depth))
-            else:
-                depth = mask * self.__non_linear_depth_2_linear(depth)
-                # print(depth.max())
-        else:
-            depth = mask*depth
-
-        return rgb, depth, mask
+    # def get_vertex_buffer(self, attribute='position', mesh_id = None):
+    #     """
+    #
+    #     :param attribute: choose any attribute from position/normal/color/textureCoord/indices
+    #     :param mesh_id: what mesh id to be edit
+    #     :return:
+    #     """
+    #     return self.__3dModel.get_buffer_data(attribute,mesh_id)
 
 
 
-    def __draw_box(self,model,modelExtrinsic,color):
-        self.__tightBoxShader.use()
-        self.__tightBoxShader.setMat4('intrinsic', self.camera.OpenGLperspective)
-        self.__tightBoxShader.setMat4('extrinsic', modelExtrinsic)
-        self.__tightBoxShader.setMat4('model', model)
-        self.__tightBoxShader.setVec3('color', color)
+    # def draw(self, model, modelExtrinsic,lightExtrinsic,drawLamp=True, drawBox=False, meshBymesh=False, color=[255,255,255], linearDepth=False, draw_inverse=True):
+    #     """
+    #
+    #     :param model: model matrix (model space transformation matrix)
+    #     :param modelExtrinsic: Extrinsic matrix of the model
+    #     :param lightExtrinsic: Extrinsic matrix of the light source
+    #     :param drawLamp: enable lamp drawing
+    #     :param drawBox: enable box drawing
+    #     :param color: color of the box
+    #     :param linearDepth: enable linear depth (which is a must for correct groundtruth)
+    #     :return: rgb, depth
+    #     """
+    #
+    #     # gl.glClearDepth(1.)
+    #     # gl.glDepthFunc(gl.GL_LESS)
+    #     # gl.glClearDepth(0.)
+    #     # gl.glDepthFunc(gl.GL_GREATER)
+    #     # gl.glClear(gl.GL_DEPTH_BUFFER_BIT)
+    #     self.__setModelPose(model,modelExtrinsic)
+    #     self.__3dModel.draw(self.__modelShader, meshBymesh)
+    #     if drawLamp:
+    #         self.__drawLamp(lightExtrinsic)
+    #
+    #     if drawBox:
+    #         self.__draw_box(model, modelExtrinsic, color)
+    #
+    #     #self.window.updateWindow()
+    #     depth = gl.glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], gl.GL_DEPTH_COMPONENT, gl.GL_FLOAT)
+    #
+    #     depth = depth.reshape(self.window.window_size[::-1])
+    #     depth = np.flipud(depth)
+    #     # depth = 1-depth
+    #
+    #
+    #     imageBuf = gl.glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], gl.GL_RGB, gl.GL_UNSIGNED_BYTE)
+    #     im = np.fromstring(imageBuf, np.uint8)
+    #
+    #     #This is because of the y axis of the image coordinate system and that of the opencv image layout is inverted
+    #     rgb = np.reshape(im, (self.window.window_size[1], self.window.window_size[0], 3))
+    #     rgb = np.flipud(rgb)
+    #
+    #     # Since the value from depth buffer contains non-linear depth ~[0,1], need to linearize
+    #     # Apply mask s.t background has depth 0
+    #     # mask = depth < 1
+    #     # mask = np.logical_or(np.logical_or(rgb[...,0]!=0, rgb[...,1]!=0),rgb[...,2]!=0)
+    #     # TODO: check this
+    #     # mask = depth < 1.
+    #     # mask = depth > 0.
+    #     # assert np.any(mask)
+    #
+    #     # if draw_inverse:
+    #     #     gl.glClearDepth(0.)
+    #     #     gl.glDepthFunc(gl.GL_GREATER)
+    #     #     # gl.glClearDepth(1.)
+    #     #     # gl.glDepthFunc(gl.GL_LESS)
+    #     #     gl.glClear(gl.GL_DEPTH_BUFFER_BIT)
+    #     #     self.__3dModel.draw(self.__modelShader, meshBymesh)
+    #     #     inv_depth = gl.glReadPixels(0, 0, self.window.window_size[0], self.window.window_size[1], gl.GL_DEPTH_COMPONENT,
+    #     #                             gl.GL_FLOAT)
+    #     #
+    #     #     inv_depth = inv_depth.reshape(self.window.window_size[::-1])
+    #     #     inv_depth = np.flipud(inv_depth)
+    #     #     # inv_depth = 1- inv_depth
+    #
+    #
+    #     # if __debug__:
+    #     #     print('before linearize: depth max', depth.max(), 'depth min', depth.min())
+    #     #     print('before linearize: depth inv max', inv_depth.max(), 'depth inv min', inv_depth.min())
+    #
+    #     # Since the value from depth buffer contains non-linear depth ~[0,1], background depth will be cast to 1.
+    #     mask = depth < 1
+    #     if linearDepth:
+    #         depth = -1 * mask * self.__non_linear_depth_2_linear(depth)
+    #     else:
+    #         depth = mask * depth
+    #
+    #     return rgb, depth
+    #
+    #     # if linearDepth:
+    #     #
+    #     #     if self.camera.coord_system == 'opengl':
+    #     #         if __debug__:
+    #     #             vis_depth = copy.deepcopy(depth)
+    #     #             vis_inv_depth = copy.deepcopy(inv_depth)
+    #     #             cv2.imshow('renderer depth',
+    #     #                        cv2.normalize(-vis_depth, -vis_depth, 0, 255, cv2.NORM_MINMAX).astype(np.uint8))
+    #     #             cv2.imshow('renderer inverse depth',
+    #     #                        cv2.normalize(-vis_inv_depth, -vis_inv_depth, 0, 255, cv2.NORM_MINMAX).astype(np.uint8))
+    #     #         #TODO: add mask back
+    #     #         #TODO: check this ->  # negative sign is added for the sake of -z forward opengl camera coordinate
+    #     #         depth =  -self.__non_linear_depth_2_linear(depth)
+    #     #         inv_depth = -self.__non_linear_depth_2_linear(inv_depth)
+    #     #         # depth = -1 * self.__non_linear_depth_2_linear(depth)
+    #     #         if __debug__:
+    #     #             print('before mask: depth max', depth.max(), 'depth min', depth.min())
+    #     #             print('before mask: inv depth max', inv_depth.max(), 'inv depth min', inv_depth.min())
+    #     #             depth_masked = depth[mask]
+    #     #             inv_depth_masked = inv_depth[mask]
+    #     #             print('filtered depth max', depth_masked.max(), 'depth min', depth_masked.min())
+    #     #             print('filtered inv depth max', inv_depth_masked.max(), 'depth inv min', inv_depth_masked.min())
+    #     #             # cv2.imshow('renderer depth',  copy.deepcopy(depth))
+    #     #     else:
+    #     #         depth = mask * self.__non_linear_depth_2_linear(depth)
+    #     #         # print(depth.max())
+    #     # else:
+    #     #     depth = mask*depth
+    #
+    #     # return rgb, depth, mask, inv_depth
 
-        gl.glBindVertexArray(self.__vaoTightBox)
-        gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
-        gl.glDrawArrays(gl.GL_LINES, 0, 24)
-        gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
+
+
+    # def __draw_box(self,model,modelExtrinsic,color):
+    #     self.__tightBoxShader.use()
+    #     self.__tightBoxShader.setMat4('intrinsic', self.camera.OpenGLperspective)
+    #     self.__tightBoxShader.setMat4('extrinsic', modelExtrinsic)
+    #     self.__tightBoxShader.setMat4('model', model)
+    #     self.__tightBoxShader.setVec3('color', color)
+    #
+    #     gl.glBindVertexArray(self.__vaoTightBox)
+    #     gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
+    #     gl.glDrawArrays(gl.GL_LINES, 0, 24)
+    #     gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
 
 
 

@@ -1,6 +1,5 @@
 from OpenGL.GL import *
 from ctypes import sizeof, c_void_p, c_float
-from shader import Shader
 import numpy as np
 
 
