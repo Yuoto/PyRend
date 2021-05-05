@@ -3,15 +3,15 @@ import math
 import cv2
 import logging
 
-if __debug__:
-    import sys
-
-    SOPHUS_ROOT = r'D:\MultimediaIClab\AR\Rendering\Sophus\py'
-    sys.path.append(SOPHUS_ROOT)
-
-    import sophus
-    from sophus.se3 import Se3
-    from sophus.so3 import So3
+# if __debug__:
+#     import sys
+#
+#     SOPHUS_ROOT = r'D:\MultimediaIClab\AR\Rendering\Sophus\py'
+#     sys.path.append(SOPHUS_ROOT)
+#
+#     import sophus
+#     from sophus.se3 import Se3
+#     from sophus.so3 import So3
 
 class Pose():
 

@@ -3,16 +3,18 @@ import ctypes
 import sys, os
 import imgui
 from imgui.integrations.glfw import GlfwRenderer
-sys.path.append(os.path.dirname(__file__))
-from renderer.window import Window
-from renderer.renderer import Renderer
-from renderer.light import Light
-from renderer.model import Model
-from renderer.shader import Shader
+RENDERER_ROOT = "/home/yuoto/AR/Renderings/PyRend"
+sys.path.append(os.path.join(RENDERER_ROOT))
+sys.path.append(os.path.join(RENDERER_ROOT,'utiles'))
+from window import Window
+from rendererEngine import RendererEngine
+from light import Light
+from model import Model
+from shader import Shader
 
 
-from renderer.camera import Camera
-from utiles.transform import setTranslation, toHomo, translationMatrix, rotationMatrix, perspectiveMatrix, lookAtMatrix
+from camera import Camera
+from transform import setTranslation, toHomo, translationMatrix, rotationMatrix, perspectiveMatrix, lookAtMatrix
 import glfw
 import math, random
 import numpy as np
@@ -96,11 +98,10 @@ def main():
     # fShaderPath = os.path.join(os.path.dirname(__file__),"renderer/shader/rendererShader.fs")
     # vShaderLampPath = os.path.join(os.path.dirname(__file__),"renderer/shader/lamp.vs")
     # fShaderLampPath = os.path.join(os.path.dirname(__file__),"renderer/shader/lamp.fs")
-    vShaderPath = os.path.join(os.path.dirname(__file__), "renderer/shader/multi_lights.vs")
-    fShaderPath = os.path.join(os.path.dirname(__file__), "renderer/shader/multi_lights.fs")
-    vShaderLampPath = os.path.join(os.path.dirname(__file__), "renderer/shader/lightCube.vs")
-    fShaderLampPath = os.path.join(os.path.dirname(__file__), "renderer/shader/lightCube.fs")
-
+    vShaderPath = os.path.join(RENDERER_ROOT, "shader", "multi_lights.vs")
+    fShaderPath = os.path.join(RENDERER_ROOT, "shader", "multi_lights.fs")
+    vShaderLampPath = os.path.join(RENDERER_ROOT, "shader", "lightCube.vs")
+    fShaderLampPath = os.path.join(RENDERER_ROOT, "shader", "lightCube.fs")
 
     vShaderTightBoxPath = os.path.join(os.path.dirname(__file__),"renderer/shader/TightBox.vs")
     fShaderTightBoxPath = os.path.join(os.path.dirname(__file__),"renderer/shader/TightBox.fs")
@@ -113,7 +114,8 @@ def main():
     # modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\CAD\demo_surgery_head_surface_printed.obj'
     #modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\Checkpoint1\testAruco\data\dodeca_Only_Yup.obj'
     #modelPath = r'D:\MultimediaIClab\AR\BrainSurgery\CAD\test.obj'
-    modelPath = r'D:\MultimediaIClab\AR\Rendering\PyRend\dragon_res2.obj'
+    # modelPath = r'D:\MultimediaIClab\AR\Rendering\PyRend\dragon_res2.obj'
+    modelPath = os.path.join(RENDERER_ROOT, 'CAD', 'dragon_res2.obj')
     #modelPath = '/home/yuoto/practice/OpenGL_Practice/suit/nanosuit.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/OPT/Model3D/bike/bike.obj'
     #modelPath = '/home/yuoto/AR/tracking/datasets/deeptrack+/dragon/Drogon.obj'
@@ -166,13 +168,13 @@ def main():
 
     # 4. create models
     models = []
-    models.append(Model(name="dragon", path=r"D:\MultimediaIClab\AR\Rendering\PyRend\dragon_res2.obj", scale=1000.))
+    models.append(Model(name="dragon", path=modelPath, scale=1000.))
 
     # 5. create camera
     mcam1 = Camera(position=np.array([0., 0., 1000.]), width=SCR_WIDTH, height=SCR_HEIGHT, K=flirIntrinsic, distCoeff=flirDistortion, near=10., far=10000.)
 
     # 6. create renderer engine
-    mrenderer = Renderer(window=mwindow,  models=models, lights=lights, camera=mcam1, modelShader=modelShader, lightCubeShader=lightCubeShader)
+    mrenderer = RendererEngine(window=mwindow,  models=models, lights=lights, camera=mcam1, modelShader=modelShader, lightCubeShader=lightCubeShader)
 
     #v = mrenderer.get_vertex_buffer(attribute='position').reshape((-1, 3))
 
@@ -247,6 +249,12 @@ def main():
         # 9. renderShaded & download map
         mrenderer.renderShaded()
         mrenderer.renderLight(np.array([8., 20., 8.]))
+
+        bgr = mrenderer.downloadFrame(type="BGR")
+        rgb = cv2.cvtColor(bgr, cv2. cv2.COLOR_BGR2RGB)
+        depth = mrenderer.linearizeDepth(mrenderer.downloadFrame(type="DEPTH"))
+        imageio.imwrite('rgb.png', rgb)
+        imageio.imwrite('depth.png', depth)
 
         # 10. update glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         # -------------------------------------------------------------------------------
