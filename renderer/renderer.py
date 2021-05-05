@@ -122,6 +122,13 @@ class Renderer:
 
         return frame
 
+    def linearizeDepth(self, depth):
+        f = self.camera.far
+        n = self.camera.near
+
+        return (2. * n * f) / (f + n - (2 * depth - 1.0) * (f - n))
+
+
     def renderShaded(self):
         gl.glViewport(0, 0, self._rendererWidth, self._rendererHeight)
 
