@@ -92,8 +92,11 @@ class Camera():
         self.up = np.cross(self.right, self.front)
         self.up = self.up / np.linalg.norm(self.up)
 
-    def GetCameraViewMatrix(self):
+    def GetCameraViewMatrixInterative(self):
         return lookAtMatrix(eye=self.position, at=self.position+self.front, up=self.up)
+
+    def GetCameraViewMatrix(self, at=np.zeros(3)):
+        return lookAtMatrix(eye=self.position, at=at, up=self.up)
 
     def setPosition(self, position):
         self.position = position

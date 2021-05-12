@@ -179,6 +179,15 @@ class RendererEngine:
             self._lightCubeShader.setMat4("view", self.camera.view)
             gl.glDrawArrays(gl.GL_TRIANGLES, 0, 36)
 
+    def renderTSDFOutter(self, pos, scale, shader=None):
+        self._lightCubeShader.use()
+        gl.glBindVertexArray(self.__vaoLamp)
+        self._lightCubeShader.setVec3("color", np.ones(3))
+        self._lightCubeShader.setMat4("model", translationMatrix(pos) @ scaleMatrix(scale))
+        self._lightCubeShader.setMat4("projection", self.camera.perspective)
+        self._lightCubeShader.setMat4("view", self.camera.view)
+        gl.glDrawArrays(gl.GL_TRIANGLES, 0, 36)
+
 
     def setWidthHeight(self, width, height):
         self._rendererWidth = width
