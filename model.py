@@ -2,7 +2,7 @@ import os
 from OpenGL.GL import *
 from shader import Shader
 from mesh import Mesh,Texture, PhongParam
-from transform import translationMatrix, scaleMatrix
+from utiles.transform import translationMatrix, scaleMatrix
 import pyassimp
 import numpy as np
 from ctypes import  c_void_p
