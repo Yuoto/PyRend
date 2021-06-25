@@ -6,6 +6,7 @@ from imgui.integrations.glfw import GlfwRenderer
 RENDERER_ROOT = "/home/yuoto/AR/Renderings/PyRend"
 sys.path.append(os.path.join(RENDERER_ROOT))
 sys.path.append(os.path.join(RENDERER_ROOT,'utiles'))
+import OpenGL.GL as gl
 from window import Window
 from rendererEngine import RendererEngine
 from light import Light
@@ -92,6 +93,21 @@ def showPointCloud(pcd,axisCamCoord):
     plt.show()
 
 
+# Camera object globally created here
+SCR_WIDTH = 1280
+SCR_HEIGHT = 1023
+flirIntrinsic = np.array([
+    [2.58397003e+03, 0., 6.80406665e+02],
+    [0., 2.59629026e+03, 4.96856500e+02],
+    [0., 0., 1.]], dtype=np.float32)
+flirDistortion = np.array(
+    [-4.0397944508415173e-01, 6.2053493009322680e-01, 2.5890572913194530e-03, -1.9067252961622230e-03,
+     -1.3223649399122224e+00])
+mcam1 = Camera(position=np.array([0., 0., 1000.]), width=SCR_WIDTH, height=SCR_HEIGHT, K=flirIntrinsic, distCoeff=flirDistortion, near=10., far=10000.)
+lastX = SCR_WIDTH / 2
+lastY = SCR_HEIGHT / 2
+firstMouse = True
+
 def main():
     # Shader info (Use absolute path)
     # vShaderPath = os.path.join(os.path.dirname(__file__),"renderer/shader/rendererShader.vs")
@@ -102,9 +118,9 @@ def main():
     fShaderPath = os.path.join(RENDERER_ROOT, "shader", "multi_lights.fs")
     vShaderLampPath = os.path.join(RENDERER_ROOT, "shader", "lightCube.vs")
     fShaderLampPath = os.path.join(RENDERER_ROOT, "shader", "lightCube.fs")
+    vShaderTightBoxPath = os.path.join(RENDERER_ROOT, "shader", "tightBox.vs")
+    fShaderTightBoxPath = os.path.join(RENDERER_ROOT, "shader", "tightBox.fs")
 
-    vShaderTightBoxPath = os.path.join(os.path.dirname(__file__),"renderer/shader/TightBox.vs")
-    fShaderTightBoxPath = os.path.join(os.path.dirname(__file__),"renderer/shader/TightBox.fs")
     # vShaderGyoPath = os.path.join(os.path.dirname(__file__), "renderer/shader/gyo.vs")
     # fShaderGyoPath = os.path.join(os.path.dirname(__file__), "renderer/shader/gyo.fs")
 
@@ -130,51 +146,61 @@ def main():
 
     # Setup Imgui context
 
-    flirIntrinsic = np.array([
-        [2.58397003e+03, 0., 6.80406665e+02],
-        [0., 2.59629026e+03, 4.96856500e+02],
-        [0., 0., 1.]], dtype=np.float32)
-    flirDistortion = np.array(
-        [-4.0397944508415173e-01, 6.2053493009322680e-01, 2.5890572913194530e-03, -1.9067252961622230e-03,
-         -1.3223649399122224e+00])
+
 
     GUI = False
+    INTERACTIVE = True
+
+
     if GUI:
         imgui.create_context()
 
     # Window
-    SCR_WIDTH = 1280
-    SCR_HEIGHT = 1024
-
-
     # 1. create window
-    mwindow = Window(width=SCR_WIDTH, height=SCR_HEIGHT, name='Renderer Test', visible=True)
+    mwindow = Window(width=SCR_WIDTH, height=SCR_HEIGHT, name='Renderer Test', enableUI=True, visible=True)
     if GUI:
         app_window = GlfwRenderer(mwindow.window)
+
+    # callback for window resize
+
+    if INTERACTIVE:
+        glfw.set_input_mode(mwindow.glfwWindow, glfw.CURSOR, glfw.CURSOR_DISABLED)
+        glfw.set_framebuffer_size_callback(mwindow.glfwWindow, framebuffer_size_callback)
+        glfw.set_cursor_pos_callback(mwindow.glfwWindow, mouse_callback)
+        glfw.set_scroll_callback(mwindow.glfwWindow, scroll_callback)
+
+
 
     # 2. create shaders
     modelShader = Shader(vShaderPath, fShaderPath)
     lightCubeShader = Shader(vShaderLampPath, fShaderLampPath)
+    tightBoxShader = Shader(vShaderTightBoxPath, fShaderTightBoxPath)
 
     # 3. create lights
     ambient = np.array([0.1, 0.1, 0.1])
     lights = []
-    lights.append(Light(position=[-100., 0., 0.], ambient=ambient))
-    lights.append(Light(position=[100., 0., 0.], ambient=ambient))
-    lights.append(Light(position=[0., -100., 0.], ambient=ambient))
-    lights.append(Light(position=[0., 100., 0.], ambient=ambient))
-    lights.append(Light(position=[0., 0., -100.], ambient=ambient))
-    lights.append(Light(position=[0., 0., 400.], ambient=ambient))
+    lightRadius = 100
+    lights.append(Light(position=[-lightRadius, 0., 0.], ambient=ambient))
+    lights.append(Light(position=[lightRadius, 0., 0.], ambient=ambient))
+    lights.append(Light(position=[0., -lightRadius, 0.], ambient=ambient))
+    lights.append(Light(position=[0., lightRadius, 0.], ambient=ambient))
+    lights.append(Light(position=[0., 0., -lightRadius], ambient=ambient))
+    lights.append(Light(position=[0., 0., 4*lightRadius], ambient=ambient))
 
     # 4. create models
     models = []
     models.append(Model(name="dragon", path=modelPath, scale=1000.))
 
     # 5. create camera
-    mcam1 = Camera(position=np.array([0., 0., 1000.]), width=SCR_WIDTH, height=SCR_HEIGHT, K=flirIntrinsic, distCoeff=flirDistortion, near=10., far=10000.)
 
     # 6. create renderer engine
-    mrenderer = RendererEngine(window=mwindow,  models=models, lights=lights, camera=mcam1, modelShader=modelShader, lightCubeShader=lightCubeShader)
+    mrenderer = RendererEngine(window=mwindow,\
+                               models=models,\
+                               lights=lights,\
+                               camera=mcam1,\
+                               modelShader=modelShader,\
+                               lightCubeShader=lightCubeShader,\
+                               tightBoxShader=tightBoxShader)
 
     #v = mrenderer.get_vertex_buffer(attribute='position').reshape((-1, 3))
 
@@ -187,7 +213,7 @@ def main():
             imgui.new_frame()
 
         # inputs
-        mwindow.processInput()
+        mwindow.processInput(mcam1)
         if GUI:
             app_window.process_inputs()
 
@@ -198,14 +224,14 @@ def main():
 
         # curT = time.time()
 
-        # ceta = math.radians(curT * 1000)
+        # ceta = math.radians(curT * 10)
         # azimuth = np.radians(45)
         # elevation = np.radians(0)
 
-        #azimuth = np.pi*(np.sin(ceta))
-        #elevation = np.pi*(np.sin(ceta/2))
+        # azimuth = np.pi*(np.sin(ceta))
+        # elevation = np.pi*(np.sin(ceta/2))
 
-        # radius = 1
+        # radius = 1000.
 
         # ================================================================================================================
         # Usually, when using outside-in tracking (i.e. concerning about object pose), the camera is always located at the center
@@ -215,7 +241,9 @@ def main():
         # camPos = np.array([0, 0, 1000.])
 
         # 8. set camera view Tcw and per model Tcw, Twm
-        mcam1.view = mcam1.GetCameraViewMatrix()
+        # mcam1.setPosition(camPos)
+        mcam1.view = mcam1.GetCameraViewMatrixInterative()
+
         rot = rotationMatrix(30, np.array([0, 1, 0]))
         trans = translationMatrix(np.array([50, -100, 0]))
         Twm = trans @ rot
@@ -250,11 +278,11 @@ def main():
         mrenderer.renderShaded()
         mrenderer.renderLight(np.array([8., 20., 8.]))
 
-        bgr = mrenderer.downloadFrame(type="BGR")
-        rgb = cv2.cvtColor(bgr, cv2. cv2.COLOR_BGR2RGB)
-        depth = mrenderer.linearizeDepth(mrenderer.downloadFrame(type="DEPTH"))
-        imageio.imwrite('rgb.png', rgb)
-        imageio.imwrite('depth.png', depth)
+        # bgr = mrenderer.downloadFrame(type="BGR")
+        # rgb = cv2.cvtColor(bgr, cv2. cv2.COLOR_BGR2RGB)
+        # depth = mrenderer.linearizeDepth(mrenderer.downloadFrame(type="DEPTH")).astype(np.uint16)
+        # imageio.imwrite('rgb.png', rgb)
+        # cv.imwrite('depth.png', depth)
 
         # 10. update glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         # -------------------------------------------------------------------------------
@@ -332,9 +360,47 @@ def main():
         app_window.shutdown()
     glfw.terminate()
 
-
     return
 
+
+
+def processInterative(mglfwWindow):
+
+    currentFrameTime = time.time()
+    deltaTime = currentFrameTime - lastFrame
+    # lastFrame = currentFrameTime
+
+    if (glfw.get_key(mglfwWindow, glfw.KEY_W) == glfw.PRESS):
+        cam1.processKeyboard(FORWARD, deltaTime)
+    if (glfw.get_key(mglfwWindow, glfw.KEY_S) == glfw.PRESS):
+        cam1.processKeyboard(BACKWARD, deltaTime)
+    if (glfw.get_key(mglfwWindow, glfw.KEY_A) == glfw.PRESS):
+        cam1.processKeyboard(LEFT, deltaTime)
+    if (glfw.get_key(mglfwWindow, glfw.KEY_D) == glfw.PRESS):
+        cam1.processKeyboard(RIGHT, deltaTime)
+
+
+ # callback for window resize
+def framebuffer_size_callback(window, width, height):
+    # create viewport
+    gl.glViewport(0,0,width,height)
+
+def mouse_callback(window, xpos, ypos):
+
+    global firstMouse,lastX, lastY, mcam1
+    if firstMouse:
+        lastX = xpos
+        lastY = ypos
+        firstMouse = False
+
+    xoffset = xpos - lastX
+    yoffset = lastY - ypos
+    lastX = xpos
+    lastY = ypos
+    mcam1.processMouseMovement(xoffset,yoffset)
+
+def scroll_callback(window,xpos,ypos):
+    mcam1.processMouseScroll(ypos)
 
 if __name__ == '__main__':
     main()
