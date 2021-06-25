@@ -474,12 +474,33 @@ def perspectiveMatrixAspect(fovy, aspect, zNear, zFar):
                      [0, 0, (f + n) / (n - f), (2 * f * n) / (n - f)],
                      [0, 0, -1, 0]], dtype=np.float)
 
+def perspectiveMatrixOpenGL(left, right, top, bottom, near, far, flipY):
+    if flipY:
+        return np.array([[2*near/(right-left), 0, (right+left)/(right-left), 0],
+                      [0, -2*near/(top-bottom), -(top+bottom)/(top-bottom), 0],
+                      [0, 0, -(far+near)/(far-near), -2*far*near/(far-near)],
+                      [0, 0, -1, 0]])
+
+    return np.array([[2*near/(right-left), 0, (right+left)/(right-left), 0],
+                  [0, 2*near/(top-bottom), (top+bottom)/(top-bottom), 0],
+                  [0, 0, -(far+near)/(far-near), -2*far*near/(far-near)],
+                  [0, 0, -1, 0]])
+
 def negYZMatrix(mat):
 
     return np.array([[mat[0, 0], mat[0, 1], mat[0, 2], mat[0, 3]],
                      [-mat[1, 0], -mat[1, 1], -mat[1, 2], -mat[1, 3]],
                      [-mat[2, 0], -mat[2, 1], -mat[2, 2], -mat[2, 3]],
                      [mat[3, 0], mat[3, 1], mat[3, 2], mat[3, 3]]], dtype=np.float)
+
+def toHomoMap(vertex):
+    """
+        Convert  H x W x 3 vertex map to H x W x 4 vertex map in homogeneous coordinate form
+        :param vertex:  H x W x 3 vertex
+        :return: H x W x 4 vertex
+    """
+    return np.concatenate((vertex, np.ones((vertex.shape[0], vertex.shape[1], 1))), axis=2)
+
 
 def toHomo(vectors):
     """
@@ -489,6 +510,8 @@ def toHomo(vectors):
     """
 
     return np.concatenate((vectors, np.ones((vectors.shape[0], 1))), axis=1).T
+
+
 
 
 def checkPointHomo(vectors):

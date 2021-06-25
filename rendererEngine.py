@@ -11,7 +11,7 @@ float_size = sizeof(c_float)
 
 
 class RendererEngine:
-    def __init__(self, window, models, lights, camera, modelShader, lightCubeShader):
+    def __init__(self, window, models, lights, camera, modelShader, lightCubeShader, tightBoxShader):
 
         self.window = window
 
@@ -22,9 +22,10 @@ class RendererEngine:
 
         self._modelShader = modelShader
         self._lightCubeShader = lightCubeShader
+        self._tightBoxShader = tightBoxShader
         # self._lightCubeShader = Shader(vShaderLampPath, fShaderLampPath)
         # self._modelShader = Shader(vShaderPath, fShaderPath)
-        # self.__tightBoxShader = Shader(vShaderTightBoxPath, fShaderTightBoxPath)
+
 
         self._rendererWidth = None
         self._rendererHeight = None
@@ -73,12 +74,36 @@ class RendererEngine:
               0.5, 0.5, 0.5,
               -0.5, 0.5, 0.5,
               -0.5, 0.5, -0.5], dtype=np.float32)
+        self.__tightBoxVertices = np.array( \
+            [-0.5, -0.5, -0.5,
+             -0.5, -0.5, 0.5,
+             -0.5, 0.5, -0.5,
+             -0.5, 0.5, 0.5,
+             0.5, -0.5, -0.5,
+             0.5, -0.5, 0.5,
+             0.5, 0.5, -0.5,
+             0.5, 0.5, 0.5,
 
+             -0.5, -0.5, 0.5,
+             -0.5, 0.5, 0.5,
+             0.5, -0.5, 0.5,
+             0.5, 0.5, 0.5,
+             -0.5, -0.5, -0.5,
+             -0.5, 0.5, -0.5,
+             0.5, -0.5, -0.5,
+             0.5, 0.5, -0.5,
 
-        # self.__3DTightBoxVertices = self.get3DTightBox()
-        # self.__vboTightBox, self.__vaoTightBox = self.__setup_3D_tightbox()
+             -0.5, -0.5, 0.5,
+             0.5, -0.5, 0.5,
+             -0.5, 0.5, 0.5,
+             0.5, 0.5, 0.5,
+             -0.5, -0.5, -0.5,
+             0.5, -0.5, -0.5,
+             -0.5, 0.5, -0.5,
+             0.5, 0.5, -0.5], dtype=np.float32)
+
         self.__vboLamp, self.__vaoLamp = self.__setupLight()
-
+        self.__vboTightBox, self.__vaoTightBox = self.__setupTightBox()
 
         self.setup_blending()
 
@@ -107,7 +132,7 @@ class RendererEngine:
 
         elif type == "BGR":
             frame = gl.glReadPixels(0, 0, self._rendererWidth, self._rendererHeight, gl.GL_BGR, gl.GL_UNSIGNED_BYTE)
-            frame = np.fromstring(frame, np.uint8)
+            frame = np.frombuffer(frame, np.uint8)
             frame = frame.reshape(self._rendererHeight, self._rendererWidth, 3)
 
         elif type == "DEPTH":
@@ -137,11 +162,11 @@ class RendererEngine:
         self._modelShader.setVec3("viewPos", self.camera.position)
         self._modelShader.setFloat("material.shininess", 32.0)
 
-        # direction light
-        self._modelShader.setVec3("dirLight.direction", np.array([-0.2, -1.0, -0.3]))
-        self._modelShader.setVec3("dirLight.ambient", np.array([0.05, 0.05, 0.05]))
-        self._modelShader.setVec3("dirLight.diffuse", np.array([0.4, 0.4, 0.4]))
-        self._modelShader.setVec3("dirLight.specular", np.array([0.5, 0.5, 0.5]))
+        # # direction light
+        # self._modelShader.setVec3("dirLight.direction", np.array([-0.2, -1.0, -0.3]))
+        # self._modelShader.setVec3("dirLight.ambient", np.array([0.05, 0.05, 0.05]))
+        # self._modelShader.setVec3("dirLight.diffuse", np.array([0.4, 0.4, 0.4]))
+        # self._modelShader.setVec3("dirLight.specular", np.array([0.5, 0.5, 0.5]))
 
         # setup the lightings of the model shader
         for id, light in enumerate(self._lights):
@@ -178,6 +203,22 @@ class RendererEngine:
             self._lightCubeShader.setMat4("projection", self.camera.perspective)
             self._lightCubeShader.setMat4("view", self.camera.view)
             gl.glDrawArrays(gl.GL_TRIANGLES, 0, 36)
+
+    def renderTightBox(self, pos, scale, shader=None):
+        if shader is not None:
+            _shader = shader
+        else:
+            _shader = self._tightBoxShader
+
+        _shader.use()
+        _shader.setMat4('projection', self.camera.perspective)
+        _shader.setMat4('view', self.camera.view)
+        _shader.setMat4('model', translationMatrix(pos) @ scaleMatrix(scale))
+
+        gl.glBindVertexArray(self.__vaoTightBox)
+        gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
+        gl.glDrawArrays(gl.GL_LINES, 0, 24)
+        gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
 
     def renderTSDFOutter(self, pos, scale, shader=None):
         self._lightCubeShader.use()
@@ -220,45 +261,46 @@ class RendererEngine:
             gl.glEnable(gl.GL_CULL_FACE)
             gl.glCullFace(gl.GL_BACK)
 
-    '''
-    def __setup_3D_tightbox(self):
-        vbo_TightBox = gl.glGenBuffers(1)
-        vao_TightBox = gl.glGenVertexArrays(1)
 
-        vertices = np.array([self.__3DTightBoxVertices[0][0],self.__3DTightBoxVertices[0][1],self.__3DTightBoxVertices[0][2]
-            , self.__3DTightBoxVertices[1][0], self.__3DTightBoxVertices[1][1], self.__3DTightBoxVertices[1][2]
-            , self.__3DTightBoxVertices[1][0], self.__3DTightBoxVertices[1][1], self.__3DTightBoxVertices[1][2]
-            , self.__3DTightBoxVertices[3][0], self.__3DTightBoxVertices[3][1], self.__3DTightBoxVertices[3][2]
-            , self.__3DTightBoxVertices[3][0], self.__3DTightBoxVertices[3][1], self.__3DTightBoxVertices[3][2]
-            , self.__3DTightBoxVertices[2][0], self.__3DTightBoxVertices[2][1], self.__3DTightBoxVertices[2][2]
-            , self.__3DTightBoxVertices[2][0], self.__3DTightBoxVertices[2][1], self.__3DTightBoxVertices[2][2]
-            , self.__3DTightBoxVertices[0][0], self.__3DTightBoxVertices[0][1], self.__3DTightBoxVertices[0][2]
-            , self.__3DTightBoxVertices[4][0], self.__3DTightBoxVertices[4][1], self.__3DTightBoxVertices[4][2]
-            , self.__3DTightBoxVertices[5][0], self.__3DTightBoxVertices[5][1], self.__3DTightBoxVertices[5][2]
-            , self.__3DTightBoxVertices[5][0], self.__3DTightBoxVertices[5][1], self.__3DTightBoxVertices[5][2]
-            , self.__3DTightBoxVertices[7][0], self.__3DTightBoxVertices[7][1], self.__3DTightBoxVertices[7][2]
-            , self.__3DTightBoxVertices[7][0], self.__3DTightBoxVertices[7][1], self.__3DTightBoxVertices[7][2]
-            , self.__3DTightBoxVertices[6][0], self.__3DTightBoxVertices[6][1], self.__3DTightBoxVertices[6][2]
-            , self.__3DTightBoxVertices[6][0], self.__3DTightBoxVertices[6][1], self.__3DTightBoxVertices[6][2]
-            , self.__3DTightBoxVertices[4][0], self.__3DTightBoxVertices[4][1], self.__3DTightBoxVertices[4][2]
-            , self.__3DTightBoxVertices[5][0], self.__3DTightBoxVertices[5][1], self.__3DTightBoxVertices[5][2]
-            , self.__3DTightBoxVertices[1][0], self.__3DTightBoxVertices[1][1], self.__3DTightBoxVertices[1][2]
-            , self.__3DTightBoxVertices[7][0], self.__3DTightBoxVertices[7][1], self.__3DTightBoxVertices[7][2]
-            , self.__3DTightBoxVertices[3][0], self.__3DTightBoxVertices[3][1], self.__3DTightBoxVertices[3][2]
-            , self.__3DTightBoxVertices[4][0], self.__3DTightBoxVertices[4][1], self.__3DTightBoxVertices[4][2]
-            , self.__3DTightBoxVertices[0][0], self.__3DTightBoxVertices[0][1], self.__3DTightBoxVertices[0][2]
-            , self.__3DTightBoxVertices[6][0], self.__3DTightBoxVertices[6][1], self.__3DTightBoxVertices[6][2]
-            , self.__3DTightBoxVertices[2][0], self.__3DTightBoxVertices[2][1], self.__3DTightBoxVertices[2][2]],dtype=np.float32)
+    # def setup3DTightbox(self, xmin, xmax, ymin, ymax, zmin, zmax):
+    #     vbo_TightBox = gl.glGenBuffers(1)
+    #     vao_TightBox = gl.glGenVertexArrays(1)
+    #
+    #     _vertices = np.array([
+    #           xmin, ymin, zmin
+    #         , self.__3DTightBoxVertices[1][0], self.__3DTightBoxVertices[1][1], self.__3DTightBoxVertices[1][2]
+    #         , self.__3DTightBoxVertices[1][0], self.__3DTightBoxVertices[1][1], self.__3DTightBoxVertices[1][2]
+    #         , self.__3DTightBoxVertices[3][0], self.__3DTightBoxVertices[3][1], self.__3DTightBoxVertices[3][2]
+    #         , self.__3DTightBoxVertices[3][0], self.__3DTightBoxVertices[3][1], self.__3DTightBoxVertices[3][2]
+    #         , self.__3DTightBoxVertices[2][0], self.__3DTightBoxVertices[2][1], self.__3DTightBoxVertices[2][2]
+    #         , self.__3DTightBoxVertices[2][0], self.__3DTightBoxVertices[2][1], self.__3DTightBoxVertices[2][2]
+    #         , xmin, ymin, zmin
+    #         , self.__3DTightBoxVertices[4][0], self.__3DTightBoxVertices[4][1], self.__3DTightBoxVertices[4][2]
+    #         , self.__3DTightBoxVertices[5][0], self.__3DTightBoxVertices[5][1], self.__3DTightBoxVertices[5][2]
+    #         , self.__3DTightBoxVertices[5][0], self.__3DTightBoxVertices[5][1], self.__3DTightBoxVertices[5][2]
+    #         , self.__3DTightBoxVertices[7][0], self.__3DTightBoxVertices[7][1], self.__3DTightBoxVertices[7][2]
+    #         , self.__3DTightBoxVertices[7][0], self.__3DTightBoxVertices[7][1], self.__3DTightBoxVertices[7][2]
+    #         , self.__3DTightBoxVertices[6][0], self.__3DTightBoxVertices[6][1], self.__3DTightBoxVertices[6][2]
+    #         , self.__3DTightBoxVertices[6][0], self.__3DTightBoxVertices[6][1], self.__3DTightBoxVertices[6][2]
+    #         , self.__3DTightBoxVertices[4][0], self.__3DTightBoxVertices[4][1], self.__3DTightBoxVertices[4][2]
+    #         , self.__3DTightBoxVertices[5][0], self.__3DTightBoxVertices[5][1], self.__3DTightBoxVertices[5][2]
+    #         , self.__3DTightBoxVertices[1][0], self.__3DTightBoxVertices[1][1], self.__3DTightBoxVertices[1][2]
+    #         , self.__3DTightBoxVertices[7][0], self.__3DTightBoxVertices[7][1], self.__3DTightBoxVertices[7][2]
+    #         , self.__3DTightBoxVertices[3][0], self.__3DTightBoxVertices[3][1], self.__3DTightBoxVertices[3][2]
+    #         , self.__3DTightBoxVertices[4][0], self.__3DTightBoxVertices[4][1], self.__3DTightBoxVertices[4][2]
+    #         , xmin, ymin, zmin
+    #         , self.__3DTightBoxVertices[6][0], self.__3DTightBoxVertices[6][1], self.__3DTightBoxVertices[6][2]
+    #         , self.__3DTightBoxVertices[2][0], self.__3DTightBoxVertices[2][1], self.__3DTightBoxVertices[2][2]],dtype=np.float32)
+    #
+    #     gl.glBindVertexArray(vao_TightBox)
+    #
+    #     gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_TightBox)
+    #     gl.glBufferData(gl.GL_ARRAY_BUFFER, vertices, gl.GL_STATIC_DRAW)
+    #     gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 3 * float_size, c_void_p(0))
+    #     gl.glEnableVertexAttribArray(0)
+    #
+    #     return vbo_TightBox, vao_TightBox
 
-        gl.glBindVertexArray(vao_TightBox)
-
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_TightBox)
-        gl.glBufferData(gl.GL_ARRAY_BUFFER, vertices, gl.GL_STATIC_DRAW)
-        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 3 * float_size, c_void_p(0))
-        gl.glEnableVertexAttribArray(0)
-
-        return vbo_TightBox, vao_TightBox
-    '''
 
     def __setupLight(self):
         # Buffer setting for Lamp
@@ -273,19 +315,18 @@ class RendererEngine:
 
         return vbo_lamp, vao_lamp
 
+    def __setupTightBox(self):
+        vbo_box = gl.glGenBuffers(1)
+        vao_box = gl.glGenVertexArrays(1)
+        gl.glBindVertexArray(vao_box)
 
-    # def get3DTightBox(self):
-    #     _3DBox = np.zeros([8, 3], dtype=np.float32)
-    #     _3DBox[0] = [self.__3dModel.Xmin, self.__3dModel.Ymin, self.__3dModel.Zmin]
-    #     _3DBox[1] = [self.__3dModel.Xmin, self.__3dModel.Ymin, self.__3dModel.Zmax]
-    #     _3DBox[2] = [self.__3dModel.Xmin, self.__3dModel.Ymax, self.__3dModel.Zmin]
-    #     _3DBox[3] = [self.__3dModel.Xmin, self.__3dModel.Ymax, self.__3dModel.Zmax]
-    #     _3DBox[4] = [self.__3dModel.Xmax, self.__3dModel.Ymin, self.__3dModel.Zmin]
-    #     _3DBox[5] = [self.__3dModel.Xmax, self.__3dModel.Ymin, self.__3dModel.Zmax]
-    #     _3DBox[6] = [self.__3dModel.Xmax, self.__3dModel.Ymax, self.__3dModel.Zmin]
-    #     _3DBox[7] = [self.__3dModel.Xmax, self.__3dModel.Ymax, self.__3dModel.Zmax]
-    #
-    #     return _3DBox
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_box)
+        gl.glBufferData(gl.GL_ARRAY_BUFFER, self.__tightBoxVertices, gl.GL_STATIC_DRAW)
+        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 3 * float_size, c_void_p(0))
+        gl.glEnableVertexAttribArray(0)
+
+        return vbo_box, vao_box
+
 
     # def update_light(self, light):
     #     # set the light shader
@@ -300,51 +341,47 @@ class RendererEngine:
     #     self._modelShader.setVec3('light.diffuse', light.diffuse)
     #     self._modelShader.setVec3('light.specular', light.specular)
 
+    # def __setModelPose(self, modelMat, extrinsicMat):
+    #     self.__modelShader.use()
+    #     self.__modelShader.setMat4('intrinsic', self.camera.OpenGLperspective)
+    #     self.__modelShader.setMat4('extrinsic', extrinsicMat)
+    #     self.__modelShader.setMat4('model', modelMat)
 
+    # @staticmethod
+    # def draw_pixels(img):
+    #     """
+    #         Render images to the currently binded window
+    #
+    #     Parameters
+    #     ----------
+    #     img : array_like, shape(h,w,3)
+    #         image to be rendered with type np.uint8
+    #     Returns
+    #     -------
+    #         None
+    #     """
+    #
+    #     #TODO: add viewport to function
+    #     data = np.flipud(img)
+    #     gl.glDrawPixels(data.shape[1], data.shape[0], gl.GL_RGB, gl.GL_UNSIGNED_BYTE, data)
 
+    # def __drawLamp(self, extrinsicMat):
+    #     self.__lampShader.use()
+    #     self.__lampShader.setVec3('color',self.light.lightColor)
+    #     self.__lampShader.setMat4('intrinsic', self.camera.OpenGLperspective)
+    #     self.__lampShader.setMat4('extrinsic', extrinsicMat)
+    #     model = np.eye(4)
+    #     self.__lampShader.setMat4('model', model)
+    #
+    #     gl.glBindVertexArray(self.__vaoLamp)
+    #     gl.glDrawArrays(gl.GL_TRIANGLES, 0, 36)
 
-
-    def __setModelPose(self, modelMat, extrinsicMat):
-        self.__modelShader.use()
-        self.__modelShader.setMat4('intrinsic', self.camera.OpenGLperspective)
-        self.__modelShader.setMat4('extrinsic', extrinsicMat)
-        self.__modelShader.setMat4('model', modelMat)
-
-    @staticmethod
-    def draw_pixels(img):
-        """
-            Render images to the currently binded window
-
-        Parameters
-        ----------
-        img : array_like, shape(h,w,3)
-            image to be rendered with type np.uint8
-        Returns
-        -------
-            None
-        """
-
-        #TODO: add viewport to function
-        data = np.flipud(img)
-        gl.glDrawPixels(data.shape[1], data.shape[0], gl.GL_RGB, gl.GL_UNSIGNED_BYTE, data)
-
-    def __drawLamp(self, extrinsicMat):
-        self.__lampShader.use()
-        self.__lampShader.setVec3('color',self.light.lightColor)
-        self.__lampShader.setMat4('intrinsic', self.camera.OpenGLperspective)
-        self.__lampShader.setMat4('extrinsic', extrinsicMat)
-        model = np.eye(4)
-        self.__lampShader.setMat4('model', model)
-
-        gl.glBindVertexArray(self.__vaoLamp)
-        gl.glDrawArrays(gl.GL_TRIANGLES, 0, 36)
-
-    def __non_linear_depth_2_linear(self,depth):
-        f = self.camera.far
-        n = self.camera.near
-        ndc_depth = 2*depth-1
-
-        return (2.0 * n * f) / (f + n - ndc_depth * (f - n))
+    # def __non_linear_depth_2_linear(self,depth):
+    #     f = self.camera.far
+    #     n = self.camera.near
+    #     ndc_depth = 2*depth-1
+    #
+    #     return (2.0 * n * f) / (f + n - ndc_depth * (f - n))
 
 
     # def set_vertex_buffer(self, pos=None, normal=None, color=None, tex=None, indices=np.array([]), mesh_id = None):
@@ -476,29 +513,29 @@ class RendererEngine:
     #
     #     # return rgb, depth, mask, inv_depth
 
-
-
-    # def __draw_box(self,model,modelExtrinsic,color):
-    #     self.__tightBoxShader.use()
-    #     self.__tightBoxShader.setMat4('intrinsic', self.camera.OpenGLperspective)
-    #     self.__tightBoxShader.setMat4('extrinsic', modelExtrinsic)
-    #     self.__tightBoxShader.setMat4('model', model)
-    #     self.__tightBoxShader.setVec3('color', color)
+    # def drawBox(self, pos, scale, shader=None):
+    #     if shader is not None:
+    #         _shader = shader
+    #     else:
+    #         _shader = self.__tightBoxShader
+    #
+    #     _shader.use()
+    #     _shader.setMat4('projection', self.camera.perspective)
+    #     _shader.setMat4('view', self.camera.view)
+    #     _shader.setMat4('model', translationMatrix(pos) @ scaleMatrix(scale))
+    #     # self._shader.setVec3('color', color)
     #
     #     gl.glBindVertexArray(self.__vaoTightBox)
     #     gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
-    #     gl.glDrawArrays(gl.GL_LINES, 0, 24)
+    #     gl.glDrawArrays(gl.GL_LINES, 0, 36)
     #     gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
 
 
 
-
-
-
- # callback for window resize
-def framebuffer_size_callback(window,width, height):
-    # create viewport
-    gl.glViewport(0,0,width,height)
+#  # callback for window resize
+# def framebuffer_size_callback(window,width, height):
+#     # create viewport
+#     gl.glViewport(0,0,width,height)
 
 
 

@@ -2,6 +2,9 @@ from OpenGL.GL import *
 import glfw
 import time
 import numpy as np
+from camera import direction
+
+lastFrame = 0
 
 class Window:
     def __init__(self,
@@ -9,6 +12,7 @@ class Window:
                  height,
                  name,
                  visible=True,
+                 enableUI = False,
                  monitor=None):
         """
         Window class wrapped with glfw window
@@ -24,6 +28,7 @@ class Window:
         self.visible = visible
         self.glfwMonitor = monitor
         self.glfwWindow = self.__setupWindow(name)
+        self.enableUI = enableUI
 
     def __setupWindow(self, name):
         """
@@ -33,6 +38,9 @@ class Window:
         """
 
         self.initGLFW()
+        # if self.glfwMonitor is None:
+        #     self.glfwMonitor = glfw.get_primary_monitor()
+
         window = glfw.create_window(self.width, self.height, name, self.glfwMonitor, None)
         if not window:
             glfw.terminate()
@@ -51,31 +59,25 @@ class Window:
             print('Failed to initialize GLFW')
         return glfw.get_monitors()
 
-    def processInput(self):
-        """
-        Process inputs of the window, currently handles only the escape key
-        :return: None
-        """
+    def processInput(self, cam, deltaT=0.01):
+        global lastFrame
+        currentFrameTime = glfw.get_time()
+        deltaT = currentFrameTime - lastFrame
+        lastFrame = currentFrameTime
 
         if glfw.get_key(self.glfwWindow, glfw.KEY_ESCAPE) is glfw.PRESS:
             glfw.set_window_should_close(self.glfwWindow, True)
 
-        #TODO: deal with callbacks
-        # camera_speed = 2.5 * deltaTime
-        # camera_front = np.array([0,0,-1])
-        # camera_up = np.array([0,1,0])
-        # if glfw.get_key(self.glfwWindow, glfw.KEY_W) == glfw.PRESS:
-        #     camera_pos += cameraSpeed * camera_front
-        # if glfw.get_key(self.glfwWindow, glfw.KEY_S) == glfw.PRESS:
-        #     camera_pos -= cameraSpeed * camera_front
-        # if glfw.get_key(self.glfwWindow, glfw.KEY_A) == glfw.PRESS:
-        #     camera_pos -= np.cross(camera_front, camera_up)/np.linalg.norm(np.cross(camera_front, camera_up)) *camera_speed
-        # if glfw.get_key(self.glfwWindow, glfw.KEY_D) == glfw.PRESS:
-        #     camera_pos += np.cross(camera_front, camera_up)/np.linalg.norm(np.cross(camera_front, camera_up)) *camera_speed
-        #
-        #
-        # glfw.poll_events()
-        # return camera_pos
+        if self.enableUI:
+
+            if glfw.get_key(self.glfwWindow, glfw.KEY_W) == glfw.PRESS:
+                cam.processKeyBoard(direction.FORWARD, deltaT)
+            if glfw.get_key(self.glfwWindow, glfw.KEY_S) == glfw.PRESS:
+                cam.processKeyBoard(direction.BACKWARD, deltaT)
+            if glfw.get_key(self.glfwWindow, glfw.KEY_A) == glfw.PRESS:
+                cam.processKeyBoard(direction.LEFT, deltaT)
+            if glfw.get_key(self.glfwWindow, glfw.KEY_D) == glfw.PRESS:
+                cam.processKeyBoard(direction.RIGHT, deltaT)
 
     def updateWindow(self):
         """
