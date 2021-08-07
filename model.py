@@ -11,18 +11,13 @@ from imageio import imread
 
 class Model:
 
-    def __init__(self, name, path, scale, T_wm=np.eye(4)):
+    def __init__(self, name, path, scale, T_wm=np.eye(4), normalize=False):
         self.textures_loaded = []
         self.meshes = []
         if path.find('\\'): self.path = path.rsplit('\\', 1)[0]
         self.directory = self.path.rsplit('/', 1)[0]
         self.name = name
         self.scale = scale
-
-        # pose info
-        self.T_cw = translationMatrix(np.array([0,0,-1]))    # viewMat
-        self.T_wm = T_wm                                    # modelMat
-        self.T_n = scaleMatrix(np.array([self.scale]*3))     # normalizeMat
 
         self.Xmax = float('-inf')
         self.Xmin = float('inf')
@@ -34,6 +29,24 @@ class Model:
         # loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
         self.__loadModel(path)
         self.sortMeshes()
+
+        # pose info
+        # normalized to a unit BB centered at 0, 0, 0
+        if normalize:
+
+            self.T_cw = translationMatrix(np.array([0, 0, -1]))  # viewMat
+            self.T_wm = T_wm  # modelMat
+            max_size = max((self.Xmax-self.Xmin, self.Ymax-self.Ymin, self.Zmax-self.Zmin))
+            self.T_n = scaleMatrix(np.array([1./max_size] * 3)) @ \
+                       translationMatrix(np.array([-(self.Xmax+self.Xmin)/2,
+                                                    -(self.Ymax+self.Ymin)/2,
+                                                    -(self.Zmax+self.Zmin)/2])) # shift to origin, then scale to 1  # normalizeMat
+        else:
+            self.T_cw = translationMatrix(np.array([0, 0, -1]))  # viewMat
+            self.T_wm = T_wm  # modelMat
+            self.T_n = scaleMatrix(np.array([self.scale] * 3))  # normalizeMat
+
+
 
     def __del__(self):
         pyassimp.release(self.scene)
@@ -261,16 +274,22 @@ class Model:
 
         textureID = glGenTextures(1)
         im = imread(filename)
+        depth = None
         if np.shape(im)[0]>0 :
             try:
-                texHeight, texWidth, depth = np.shape(im)
+                if len(np.shape(im)) == 3:
+                    texHeight, texWidth, depth = np.shape(im)
+                elif len(np.shape(im)) == 2:
+                    texHeight, texWidth = np.shape(im)
             except:
                 print('texture'+filename+' has unexpected dimension')
                 return -1
             glBindTexture(GL_TEXTURE_2D, textureID)
-            texHeight, texWidth, depth = np.shape(im)
+            # texHeight, texWidth, depth = np.shape(im)
             if path.split('.', 1)[1] == 'png' and depth == 4:
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, im)
+            elif depth is None: #single channel
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, texWidth, texHeight, 0, GL_RED, GL_UNSIGNED_BYTE, im)
             else:
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, im)
             glGenerateMipmap(GL_TEXTURE_2D)

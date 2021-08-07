@@ -486,18 +486,158 @@ def perspectiveMatrixOpenGL(left, right, top, bottom, near, far, flipY):
                   [0, 0, -(far+near)/(far-near), -2*far*near/(far-near)],
                   [0, 0, -1, 0]])
 
-def negYZMatrix(mat):
+def negYZMat3(mat):
+    """
+    Negate the y, z (row 1, 2) value of a [3,3] matrix
+    :param mat: [3, 3] matrix
+    :return: same matrix but with row 1, 2 negated
+    """
 
+    return np.array([[mat[0, 0], mat[0, 1], mat[0, 2]],
+                     [-mat[1, 0], -mat[1, 1], -mat[1, 2]],
+                     [-mat[2, 0], -mat[2, 1], -mat[2, 2]]], dtype=np.float)
+
+def negYZMat4(mat):
+    """
+    Negate the y, z (row 1, 2) value of a [4,4] matrix
+    :param mat: [4, 4] matrix
+    :return: same matrix but with row 1, 2 negated
+    """
     return np.array([[mat[0, 0], mat[0, 1], mat[0, 2], mat[0, 3]],
                      [-mat[1, 0], -mat[1, 1], -mat[1, 2], -mat[1, 3]],
                      [-mat[2, 0], -mat[2, 1], -mat[2, 2], -mat[2, 3]],
                      [mat[3, 0], mat[3, 1], mat[3, 2], mat[3, 3]]], dtype=np.float)
 
+
+# Tested with test_backproject_project
+def project(vertices, K):
+    """
+    This function performs the opencv intrinsic matrix for perspective projection onto image plane
+    (i.e. if the vertices are in the opengl coordinate, then user should manually negate y,z, coordinate)
+
+    :param vertices: [N, 3]  vertices in camera coordinate (opencv)
+    :param K: [3, 3] intrinsic matrix
+    :return: uv_map: [N, 2] floating point (u,v) pixel location of the projected vertices
+    """
+
+    uv = K @ vertices.T
+    uv[0, :] /= uv[2, :]
+    uv[1, :] /= uv[2, :]
+    uv = (uv.T)[:, :2]
+
+    return uv.astype(np.float32)
+
+# Tested with test_backproject_project
+def projectMap(vertex_map, K):
+    """
+    This function performs the opencv intrinsic matrix for perspective projection onto image plane
+    (i.e. if the vertex map is in the opengl coordinate, then user should manually negate y,z, coordinate)
+
+    :param vertex_map: [H, W, 3] vertex map in camera coordinate (opencv)
+    :param K: [3, 3] intrinsic matrix
+    :return: uv_map: [H, W, 2] floating point (u,v) pixel location of the projected vertices
+    """
+    H, W, C = vertex_map.shape
+    uv_map = project(vertex_map.reshape(H * W, 3), K).reshape(H, W, 2)
+
+    return uv_map
+
+# Tested with test_backproject_project
+def backProjectMap(depth, K, mask=None):
+    """
+    Project depth into opengl camera coordinate (camera looking @ -Z axis)
+    :param depth: [H, W] depth map in opengl coordinate
+    :param K: [3, 3] intrinsic matrix
+    :param mask: [H, W] if given, then the output map is masked
+
+    :return: cloud: [H, W, 3] point cloud in camera coordinate
+    """
+    H, W = depth.shape
+    fx = K[0, 0]
+    fy = K[1, 1]
+    cx = K[0, 2]
+    cy = K[1, 2]
+
+    xx, yy = np.meshgrid(range(W), range(H))
+    pt0 = (xx - cx) * depth / fx
+    pt1 = (yy - cy) * depth / fy
+    if mask is not None:
+        cloud = np.dstack((pt0 * mask, pt1 * mask, depth * mask))
+    else:
+        cloud = np.dstack((pt0, pt1, depth))
+
+    return cloud
+
+
+def calGradient2D(x):
+    """
+    Calculate the gradient of a 2D input data
+    :param x: [H, W] or [H, W, C] input data
+    :return: gy: [H, W] gradient respect to y axis
+             gx: [H, W] gradient respect to x axis
+    """
+    h, w = x.shape[:2]
+    gy = np.zeros_like(x)
+    gx = np.zeros_like(x)
+
+    gy[1:h - 1, :] = (x[2:h, :] - x[0:h - 2, :]) / 2
+    gy[0, :] = x[1, :] - x[0, :]
+    gy[h - 1, :] = x[h - 1, :] - x[h - 2, :]
+
+    gx[:, 1: w - 1] = (x[:, 2:w] - x[:, 0:w - 2]) / 2
+    gx[:, 0] = x[:, 1] - x[:, 0]
+    gx[:, w - 1] = x[:, w - 1] - x[:, w - 2]
+
+    return gy, gx
+
+def calNormalMap(vertex_map, opengl=True):
+    """
+    Compute the normal map using vertex map, i.e. calculate normal using neighborhoods not actual geometry
+    :param vertex_map: [H, W, 3] vertex map
+    :return: normal_map: [H, W, 3] normal map, the normals is calculated s.t. it is pointing outward
+    """
+    gy_x, gx_x = np.gradient(vertex_map[..., 0])
+    gy_y, gx_y = np.gradient(vertex_map[..., 1])
+    gy_z, gx_z = np.gradient(vertex_map[..., 2])
+
+    gx = np.dstack((gx_x, gx_y, gx_z))
+    gy = np.dstack((gy_x, gy_y, gy_z))
+
+    # y cross x,  since the image y is downward
+    if opengl:
+        normal_map = np.cross(gx, gy)
+    else:
+        normal_map = np.cross(gy, gx)
+
+    n = np.linalg.norm(normal_map, axis=2)
+    normal_map[:, :, 0] /= n
+    normal_map[:, :, 1] /= n
+    normal_map[:, :, 2] /= n
+
+    NaNs = np.isnan(normal_map)
+    normal_map[NaNs] = 0
+
+    # # np.gradient is equivalent to below
+    # gy_x2, gx_x2 = calGradient2D(vertex_map[..., 0])
+    # gy_y2, gx_y2 = calGradient2D(vertex_map[..., 1])
+    # gy_z2, gx_z2 = calGradient2D(vertex_map[..., 2])
+    # gx2 = np.dstack((gx_x2, gx_y2, gx_z2))
+    # gy2 = np.dstack((gy_x2, gy_y2, gy_z2))
+    # assert np.allclose(gx,gx2)
+    # assert np.allclose(gy, gy2)
+
+    return normal_map
+
+
+
+
+
+
 def toHomoMap(vertex):
     """
-        Convert  H x W x 3 vertex map to H x W x 4 vertex map in homogeneous coordinate form
-        :param vertex:  H x W x 3 vertex
-        :return: H x W x 4 vertex
+    Convert [H, W, 3] vertex map to [H, W, 4] vertex map in homogeneous coordinate form
+    :param vertex: [H, W, 3] vertex map
+    :return: [H, W, 4] vertex map in homogeneous coordinate form
     """
     return np.concatenate((vertex, np.ones((vertex.shape[0], vertex.shape[1], 1))), axis=2)
 
@@ -633,40 +773,63 @@ def setTranslation(Ext, translation):
     return Ext
 
 
+def test_backproject_project(depth, K, mask):
+    """
+
+    :param depth: [H, W] depth map in opengl coordinate
+    :param K: [3, 3] intrinsic matrix
+    :return:
+    """
+    cam_coord = backProjectMap(depth, K, mask)
+    uv = projectMap(cam_coord, K)
+    depth_resampled = cv2.remap(depth, uv, None, interpolation=cv2.INTER_LINEAR)
+    np.testing.assert_allclose(depth_resampled, depth)
 
 def main():
-    import sys
-    SOPHUS_ROOT = r'D:\MultimediaIClab\AR\Rendering\Sophus\py'
-    sys.path.append(SOPHUS_ROOT)
 
-    import sophus
-    from sophus.se3 import Se3
+    H = 480
+    W = 640
+    mask = np.ones((H,W)).astype(np.bool)
+    depth = np.random.rand(H,W)
+    K = np.array([[W//4, 0., W//2],
+                  [0., H//4, H//2],
+                  [0., 0., 1.]])
 
-
-    # [uvec, wvec]
-    v = sophus.Vector6(0., 1, 0.5, 2., 1, 0.5)
-    w = Se3.exp(v)
-    mat = np.array(w.so3.matrix()._mat).reshape(3,3).astype(np.float)
-    tvec = np.array(w.t._mat).astype(np.float)
-
-    SO3 = cv2.Rodrigues(np.array([2., 1, 0.5]))[0]
-    assert np.allclose(SO3,mat)
-    #a = Pose(rvec= np.array([2., 1, 0.5]), tvec= np.array([0., 1, 0.5]))
-    a = Pose()
-    a.se3 = np.array([ 2., 1, 0.5, 0., 1, 0.5,])
-    a.update()
+    test_backproject_project(depth, K, mask)
 
 
-
-    a.se3 += (-np.array([ 2., 1, 0.5, 0., 1, 0.5,]))
-    a.update()
-    a.se3 += np.array([2., 1, 0.5, 0., 1, 0.5, ])
-    a.update()
-
-    my_SO3 = a.SE3[:3,:3]
-    my_tvec = a.SE3[:3,3]
-    assert np.allclose(my_SO3 , SO3)
-    assert np.allclose(my_tvec , tvec)
+    # import sys
+    # SOPHUS_ROOT = r'D:\MultimediaIClab\AR\Rendering\Sophus\py'
+    # sys.path.append(SOPHUS_ROOT)
+    #
+    # import sophus
+    # from sophus.se3 import Se3
+    #
+    #
+    # # [uvec, wvec]
+    # v = sophus.Vector6(0., 1, 0.5, 2., 1, 0.5)
+    # w = Se3.exp(v)
+    # mat = np.array(w.so3.matrix()._mat).reshape(3,3).astype(np.float)
+    # tvec = np.array(w.t._mat).astype(np.float)
+    #
+    # SO3 = cv2.Rodrigues(np.array([2., 1, 0.5]))[0]
+    # assert np.allclose(SO3,mat)
+    # #a = Pose(rvec= np.array([2., 1, 0.5]), tvec= np.array([0., 1, 0.5]))
+    # a = Pose()
+    # a.se3 = np.array([ 2., 1, 0.5, 0., 1, 0.5,])
+    # a.update()
+    #
+    #
+    #
+    # a.se3 += (-np.array([ 2., 1, 0.5, 0., 1, 0.5,]))
+    # a.update()
+    # a.se3 += np.array([2., 1, 0.5, 0., 1, 0.5, ])
+    # a.update()
+    #
+    # my_SO3 = a.SE3[:3,:3]
+    # my_tvec = a.SE3[:3,3]
+    # assert np.allclose(my_SO3 , SO3)
+    # assert np.allclose(my_tvec , tvec)
 
 
 

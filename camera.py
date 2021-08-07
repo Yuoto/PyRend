@@ -1,10 +1,10 @@
 import numpy as np
 import logging
-from utiles.transform import perspectiveMatrix, perspectiveMatrixAspect, lookAtMatrix, negYZMatrix, toHomoMap, toHomo
+from utiles.transform import perspectiveMatrix, perspectiveMatrixAspect, lookAtMatrix, negYZMat3, toHomoMap, toHomo
 from enum import Enum
 
 class Camera():
-    def __init__(self, position=np.array([0.,0.,1.]), width=640, height=480, K=np.eye(3), distCoeff = None, near=10, far=10000):
+    def __init__(self, position=np.array([0.,0.,1.]), width=640, height=480, K=np.eye(3), distCoeff = None, near=10, far=10000, MILLI_METER=False):
         '''
                 Camera class, given base project/ back project functions
         :param position: position of the camera
@@ -42,8 +42,11 @@ class Camera():
         # interactive settings
         self.yaw = -90.
         self.pitch = 0.
-        self.movementSpeed = 250
-        self.mouseSensitivity = 0.001
+        if MILLI_METER:
+            self.movementSpeed = 250.
+        else:
+            self.movementSpeed = 2.5
+        self.mouseSensitivity = 0.1
         self.fovy = 45.
 
         if np.all(K == np.eye(3)):
@@ -91,10 +94,13 @@ class Camera():
         pitch_rad = np.radians(self.pitch)
         front = np.array([np.cos(yaw_rad) * np.cos(pitch_rad), np.sin(pitch_rad), np.sin(yaw_rad)* np.cos(pitch_rad)])
         self.front = front / np.linalg.norm(front)
+
         self.right = np.cross(self.front, self.worldUp)
         self.right = self.right / np.linalg.norm(self.right)
         self.up = np.cross(self.right, self.front)
         self.up = self.up / np.linalg.norm(self.up)
+
+    #TODO: move these functions to transform.py
 
     def GetCameraViewMatrixInterative(self):
         return lookAtMatrix(eye=self.position, at=self.position+self.front, up=self.up)
@@ -146,53 +152,7 @@ class Camera():
         #     pixels = pixels.astype(np.int32).T
         return cloud
 
-    #TODO: test this
-    def projectMap(self, vertex, isOpenCV=True):
-        """
 
-        :param vertex:
-        :param isOpenCV:
-        :return:
-        """
-        # OpenCV Method
-        if isOpenCV:
-            K = np.eye(4)
-            K[:3,:3] = self.K
-            pixel_map = K @ negYZMatrix @ toHomoMap(vertex)
-            pixel_map[:, :, 0] /= pixel_map[:, :, 2]
-            pixel_map[:, :, 1] /= pixel_map[:, :, 2]
-            pixel_map = pixel_map.astype(np.int32)
-
-        # OpenGL Method
-        else:
-            convert_xz[2, 2] = -1
-            pixel_map = np.dot(self.OpenGLperspective, np.dot(convert_xz, points))
-            pixel_map = (pixel_map[:2, :] / pixel_map[2, :] + 1) * 0.5 * np.array(
-                [[self.window_size[0]], [self.window_size[1]]])
-            pixel_map = pixel_map.astype(np.int32).T
-        return pixel_map
-
-    # TODO: test this
-    def backProjectMap(self, depth, mask, opengl=True):
-        """
-        Project depth into opengl camera coordinate
-        :param mask:
-        :param depth:
-        :return:
-        """
-
-        xx, yy = np.meshgrid(range(self.width), range(self.height))
-        pt0 = (xx - self.cx) * depth / self.fx
-        pt1 = (yy - self.cy) * depth / self.fy
-
-        #convert y,z
-        # pt1 = np.flipud(pt1)
-        cloud = np.dstack((pt0*mask, pt1*mask, depth*mask))
-        cloud[:, :, 1] = -cloud[:, :, 1]
-        cloud[:, :, 2] = -cloud[:, :, 2]
-        # cloud[:, :, 0] = -cloud[:, :, 0]
-
-        return cloud
 
     # def GetCameraViewMatrix(self, up, eye, at, inplane, isRadian=True):
     #
@@ -344,32 +304,32 @@ class Camera():
     #     output[:, 2] = depth.squeeze()
     #     return output
 
-    def project(self, pcd, isOpenCV=True):
-
-        """
-
-        :param points: 4 x N (x,y,z,w) in homogeneous coordinate of the camera
-        :param isOpenCV: if rendered with OpenCV intrinsic matrix (if not, then near & far plane is considered)
-        :param invertX: if invert the x axis during projection
-        :return: (x,y) in screen coordinate
-        """
-
-        # OpenCV Method
-        if isOpenCV:
-            K = np.eye(4)
-            K[:3, :3] = self.K
-            pix_pts = (K @ negYZMatrix(np.eye(4)) @ toHomo(pcd)).T
-            pix_pts = pix_pts[:, :2] / pix_pts[:, 2][...,np.newaxis]
-            pix_pts = pix_pts.astype(np.int32)
-
-        # OpenGL Method
-        # else:
-        #     convert_xz[2, 2] = -1
-        #     pix_pts = np.dot(self.OpenGLperspective, np.dot(convert_xz,points))
-        #     pix_pts = (pix_pts[:2, :] / pix_pts[2, :] + 1) * 0.5 * np.array(
-        #         [[self.window_size[0]], [self.window_size[1]]])
-        #     pix_pts = pix_pts.astype(np.int32).T
-        return pix_pts
+    # def project(self, pcd, isOpenCV=True):
+    #
+    #     """
+    #
+    #     :param points: 4 x N (x,y,z,w) in homogeneous coordinate of the camera
+    #     :param isOpenCV: if rendered with OpenCV intrinsic matrix (if not, then near & far plane is considered)
+    #     :param invertX: if invert the x axis during projection
+    #     :return: (x,y) in screen coordinate
+    #     """
+    #
+    #     # OpenCV Method
+    #     if isOpenCV:
+    #         K = np.eye(4)
+    #         K[:3, :3] = self.K
+    #         pix_pts = (K @ negYZMatrix(np.eye(4)) @ toHomo(pcd)).T
+    #         pix_pts = pix_pts[:, :2] / pix_pts[:, 2][...,np.newaxis]
+    #         pix_pts = pix_pts.astype(np.int32)
+    #
+    #     # OpenGL Method
+    #     # else:
+    #     #     convert_xz[2, 2] = -1
+    #     #     pix_pts = np.dot(self.OpenGLperspective, np.dot(convert_xz,points))
+    #     #     pix_pts = (pix_pts[:2, :] / pix_pts[2, :] + 1) * 0.5 * np.array(
+    #     #         [[self.window_size[0]], [self.window_size[1]]])
+    #     #     pix_pts = pix_pts.astype(np.int32).T
+    #     return pix_pts
 
     '''
     def toCamCord(self, mask, depth, isOpenCV=False):

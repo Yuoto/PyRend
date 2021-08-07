@@ -160,7 +160,7 @@ class RendererEngine:
         # setup the same shader
         self._modelShader.use()
         self._modelShader.setVec3("viewPos", self.camera.position)
-        self._modelShader.setFloat("material.shininess", 32.0)
+        # self._modelShader.setFloat("material.shininess", 32)
 
         # # direction light
         # self._modelShader.setVec3("dirLight.direction", np.array([-0.2, -1.0, -0.3]))
