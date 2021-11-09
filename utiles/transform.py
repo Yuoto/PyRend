@@ -403,6 +403,12 @@ def translationMatrix(tvec):
                      ], dtype=np.float)
 
 def rotationMatrix(angle, axis):
+    """
+
+    :param angle: scalar, rotating degree
+    :param axis: [3, ] axis to rotate with (will be normalized internally)
+    :return: [4, 4] rotation matrix
+    """
     angle = (angle / 180) * np.pi
     s = np.sin(angle)
     c = np.cos(angle)
@@ -438,6 +444,24 @@ def lookAtMatrix(eye=np.array([0,0,1]), at=np.array([0,0,0]), up=np.array([0,1,0
                      [u[0], u[1], u[2], -u @ eye],
                      [-f[0], -f[1], -f[2], f @ eye],
                      [0, 0, 0, 1]], dtype=np.float)
+
+def inverseMatrix(mat):
+    """
+
+    :param mat: [4, 4] rigid transformation
+    :return:
+    """
+    R = mat[:3, :3]
+    t = mat[:3, 3]
+    R_inv = R.T
+    t_inv = - (R.T @ t)
+    mat_inv = np.eye(4)
+    mat_inv[:3, :3] = R_inv
+    mat_inv[:3, 3] = t_inv
+
+    return mat_inv
+
+
 
 def perspectiveMatrix(K, width, height, zNear, zFar, flipY):
 
@@ -543,13 +567,14 @@ def projectMap(vertex_map, K):
     return uv_map
 
 # Tested with test_backproject_project
-def backProjectMap(depth, K, mask=None):
+# TODO: Think if the depth of back project should be positive, otherwise the coordinates will be wrong
+def backProjectMap(depth, K, opengl, mask=None):
     """
     Project depth into opengl camera coordinate (camera looking @ -Z axis)
     :param depth: [H, W] depth map in opengl coordinate
     :param K: [3, 3] intrinsic matrix
     :param mask: [H, W] if given, then the output map is masked
-
+    :param opengl: boolean flag, if set, then it will use the opengl camera coordinate system. (i.e. +Y up, -Z forward)
     :return: cloud: [H, W, 3] point cloud in camera coordinate
     """
     H, W = depth.shape
@@ -561,6 +586,11 @@ def backProjectMap(depth, K, mask=None):
     xx, yy = np.meshgrid(range(W), range(H))
     pt0 = (xx - cx) * depth / fx
     pt1 = (yy - cy) * depth / fy
+
+    if opengl:
+        # negate the x coordinate, since negative depth flips the x coords.
+        pt0 = - pt0
+
     if mask is not None:
         cloud = np.dstack((pt0 * mask, pt1 * mask, depth * mask))
     else:
@@ -629,8 +659,31 @@ def calNormalMap(vertex_map, opengl=True):
     return normal_map
 
 
+def warpRigidPoints(vertex, R, t):
+    """
 
+    :param vertex: [N, 3]
+    :param R: [3, 3]
+    :param t: [3,]
+    :return:
+    """
+    x = R @ vertex.T # [3, N]
+    x = x + t[...,np.newaxis] # [3, N]
 
+    return x.T # [N, 3]
+
+def warpInverseRigidPoints(vertex, R, t):
+    """
+
+       :param vertex: [N, 3]
+       :param R: [3, 3]
+       :param t: [3,]
+       :return:
+       """
+    x = R.T @ vertex.T  # [3, N]
+    x = x - (R.T @ t)[...,np.newaxis]  # [3, N]
+
+    return x.T  # [N, 3]
 
 
 def toHomoMap(vertex):

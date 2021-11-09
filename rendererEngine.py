@@ -154,7 +154,12 @@ class RendererEngine:
         return (2. * n * f) / (f + n - (2 * depth - 1.0) * (f - n))
 
 
-    def renderShaded(self):
+    def renderShaded(self, m_idx=-1):
+        """
+
+        :param m_idx: specify the model to be rendered with its index
+        :return:
+        """
         gl.glViewport(0, 0, self._rendererWidth, self._rendererHeight)
 
         # setup the same shader
@@ -180,15 +185,27 @@ class RendererEngine:
             self._modelShader.setFloat("pointLights[{:d}].quadratic".format(id), light.quadratic)
 
         # for each model, setup the transformations
-        for model in self._models:
-            # setup shader of the model
-            self._modelShader.setMat4("projection", self.camera.perspective)
-            self._modelShader.setMat4("view", model.T_cw)
+        if m_idx == -1:
+            for model in self._models:
+                # setup shader of the model
+                self._modelShader.setMat4("projection", self.camera.perspective)
+                self._modelShader.setMat4("view", model.T_cw)
 
-            # world transformation
-            self._modelShader.setMat4("model", model.T_wm @ model.T_n)
+                # world transformation
+                self._modelShader.setMat4("model", model.T_wm @ model.T_n)
 
-            model.draw(self._modelShader)
+                model.draw(self._modelShader)
+        else:
+            model_list = [self._models[m] for m in m_idx]
+            for model in model_list:
+                # setup shader of the model
+                self._modelShader.setMat4("projection", self.camera.perspective)
+                self._modelShader.setMat4("view", model.T_cw)
+
+                # world transformation
+                self._modelShader.setMat4("model", model.T_wm @ model.T_n)
+
+                model.draw(self._modelShader)
 
 
     def renderSilhouette(self):

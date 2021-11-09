@@ -11,7 +11,7 @@ from imageio import imread
 
 class Model:
 
-    def __init__(self, name, path, scale, T_wm=np.eye(4), normalize=False):
+    def __init__(self, name, path, scale=1., T_wm=np.eye(4), normalize=False):
         self.textures_loaded = []
         self.meshes = []
         if path.find('\\'): self.path = path.rsplit('\\', 1)[0]
@@ -33,11 +33,10 @@ class Model:
         # pose info
         # normalized to a unit BB centered at 0, 0, 0
         if normalize:
-
             self.T_cw = translationMatrix(np.array([0, 0, -1]))  # viewMat
             self.T_wm = T_wm  # modelMat
-            max_size = max((self.Xmax-self.Xmin, self.Ymax-self.Ymin, self.Zmax-self.Zmin))
-            self.T_n = scaleMatrix(np.array([1./max_size] * 3)) @ \
+            self.scale = max((self.Xmax-self.Xmin, self.Ymax-self.Ymin, self.Zmax-self.Zmin))
+            self.T_n = scaleMatrix(np.array([1./self.scale] * 3)) @ \
                        translationMatrix(np.array([-(self.Xmax+self.Xmin)/2,
                                                     -(self.Ymax+self.Ymin)/2,
                                                     -(self.Zmax+self.Zmin)/2])) # shift to origin, then scale to 1  # normalizeMat
