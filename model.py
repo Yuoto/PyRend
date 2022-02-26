@@ -7,6 +7,7 @@ import pyassimp
 import numpy as np
 from ctypes import  c_void_p
 from imageio import imread
+import pywavefront
 
 
 class Model:
@@ -28,6 +29,7 @@ class Model:
 
         # loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
         self.__loadModel(path)
+
         self.sortMeshes()
 
         # pose info
@@ -59,7 +61,7 @@ class Model:
         self.scene = pyassimp.load(path, processing=pyassimp.postprocess.aiProcess_Triangulate | \
                                                     pyassimp.postprocess.aiProcess_GenNormals  | \
                                                     pyassimp.postprocess.aiProcess_CalcTangentSpace)
-
+        self.obj_scene = pywavefront.Wavefront(path)
         if not self.scene:
             print('ERROR::ASSIMP:: cannot load model')
         self.processNode(self.scene.rootnode, self.scene)
@@ -187,14 +189,14 @@ class Model:
             _material = scene.materials[mesh.materialindex]
 
             # diffuse maps
-            Maps, phongParam = self.loadMaterialTextures(_material)
+            Maps, phongParam = self.loadMaterialTextures(_material, mesh.name)
             textures.extend(Maps)
 
 
         return Mesh(position, center, normal, color, texcoord, indices, textures, phongParam, attribute_mask)
 
 
-    def loadMaterialTextures(self,mat):
+    def loadMaterialTextures(self,mat, mesh_name):
         textures = []
         phongParam = PhongParam()
 
@@ -204,52 +206,62 @@ class Model:
         bmp_path = ''
         png_path = ''
         jpg_path = ''
+        for name, mesh in self.obj_scene.meshes.items():
+            if name.find(mesh_name) != -1:
+                obj_material = mesh.materials[0]
+                break
+        # work around since pyassimp is dead
+        phongParam.Ka = obj_material.ambient
+        phongParam.Kd = obj_material.diffuse
+        phongParam.Ks = obj_material.specular
+        phongParam.Ns = obj_material.shininess
+        phongParam.Ke = obj_material.emissive
+        phongParam.alpha = obj_material.transparency
 
-
-        for key, value in mat.properties.items():
-            if type(value) == bytes:
-                value=value.decode("utf-8")
-            if key == 'ambient':
-                if type(value) == int:
-                    phongParam.Ka = [value/255.]*3
-                else:
-                    phongParam.Ka = value
-            elif key == 'diffuse':
-                if type(value) == int:
-                    phongParam.Kd = [value/255.]*3
-                else:
-                    phongParam.Kd = value
-            elif key == 'specular':
-                if type(value) == int:
-                    phongParam.Ks = [value/255.]*3
-                else:
-                    phongParam.Ks = value
-            elif key == 'shininess':
-                phongParam.Ns = value
-            elif key == 'emissive':
-                if type(value) == int:
-                    phongParam.Ke = [value/255.]*3
-                else:
-                    phongParam.Ke = value
-            elif key == 'opacity':
-                if value == 0:
-                    phongParam.alpha = 1
-                else:
-                    phongParam.alpha = value
-            # for maps path
-            elif key == 'file':
-                if value.find('_ddn') > 0:
-                    normal_path = value
-                elif value.find('_dif') > 0:
-                    diff_path = value
-                elif value.find('_spec') > 0:
-                    spec_path = value
-                elif value.find('.bmp') > 0:
-                    bmp_path = value
-                elif value.find('.png') > 0:
-                    png_path = value
-                elif value.find('.jpg') > 0:
-                    jpg_path = value
+        # for key, value in mat.properties.items():
+        #     if type(value) == bytes:
+        #         value=value.decode("utf-8")
+        #     if key == 'ambient':
+        #         if type(value) == int:
+        #             phongParam.Ka = [value/255.]*3
+        #         else:
+        #             phongParam.Ka = value
+        #     elif key == 'diffuse':
+        #         if type(value) == int:
+        #             phongParam.Kd = [value/255.]*3
+        #         else:
+        #             phongParam.Kd = value
+        #     elif key == 'specular':
+        #         if type(value) == int:
+        #             phongParam.Ks = [value/255.]*3
+        #         else:
+        #             phongParam.Ks = value
+        #     elif key == 'shininess':
+        #         phongParam.Ns = value
+        #     elif key == 'emissive':
+        #         if type(value) == int:
+        #             phongParam.Ke = [value/255.]*3
+        #         else:
+        #             phongParam.Ke = value
+        #     elif key == 'opacity':
+        #         if value == 0:
+        #             phongParam.alpha = 1
+        #         else:
+        #             phongParam.alpha = value
+        #     # for maps path
+        #     elif key == 'file':
+        #         if value.find('_ddn') > 0:
+        #             normal_path = value
+        #         elif value.find('_dif') > 0:
+        #             diff_path = value
+        #         elif value.find('_spec') > 0:
+        #             spec_path = value
+        #         elif value.find('.bmp') > 0:
+        #             bmp_path = value
+        #         elif value.find('.png') > 0:
+        #             png_path = value
+        #         elif value.find('.jpg') > 0:
+        #             jpg_path = value
 
         paths = {'diffusion':diff_path,'normal':normal_path,'specular':spec_path, 'bmp_path':bmp_path, 'png_path':png_path, 'jpg_path':jpg_path}
 

@@ -3,6 +3,28 @@ import math
 import cv2
 import logging
 
+def getExMatFromP(p):
+    """
+
+    :param p: p [6, 1] axis angle
+    :return: T: [4, 4] SE3 group
+    """
+    T = np.eye(4)
+    T[:3, :] = getRtFromP(p)
+    return T
+
+def getPFromExMat(T):
+    """
+
+    :param T: [4, 4] SE3 group
+    :return: p [6, 1] axis angle
+    """
+    r = getAxisAngleFromRotMat(T[:3, :3]) # [3, 1]
+    p = np.concatenate((r, T[:3, 3:4]), axis=0)
+
+    return p
+
+
 def angleBetweenTwoVectors(v1, v2):
 
     cosA = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
@@ -14,21 +36,47 @@ def angleBetweenTwoVectors(v1, v2):
         angle = np.arccos(cosA)/np.pi*180
     return angle
 
+
+def getRtFromP(p):
+    """
+
+    :param p: [6, 1] axis angle
+    :return: Rt: [3, 4] transformation matrix
+    """
+    Rt = np.zeros((3, 4))
+    Rt[:3, :3] = getRotMatFromAxisAngle(p[:3])
+    Rt[:3, 3:4] = p[3:6]
+
+    return Rt
+
+def getPosesFromP(p):
+    """
+
+    :param p: [N, 1] flattened axis angles
+    :return: poses [N/6, 12]
+    """
+    assert p.shape[0] % 6 ==0
+    num = int(p.shape[0] / 6)
+    poses = np.zeros((num, 12))
+    for i in range(num):
+        poses[i,:] = getRtFromP(p[6*i: 6*i + 6]).reshape(-1, order='F')
+    return poses
+
 def getPFromPoses(poses):
     """
         param: poses [N, 12]
-        return: lie algebra [6N]
+        return: lie algebra [6N, 1]
 
     layout: r11, r21, r31, r12, r22, r32, r13, r23, r33, t1, t2, t3
     """
 
     num = poses.shape[0]
-    p = np.zeros(6*num)
+    p = np.zeros((6*num, 1))
 
     for i in range(num):
         T = poses[i, :].reshape((3,4), order='F') 
         p[6*i: 6*i +3] = getAxisAngleFromRotMat(T[:3, :3])
-        p[6*i + 3: 6*i + 6] = T[:3, 3]
+        p[6*i + 3: 6*i + 6] = T[:3, 3:4]
 
     return p
 
@@ -37,37 +85,63 @@ def getPFromPoses(poses):
 def getAxisAngleFromRotMat(R):
     """
         param: R [3, 3] rotation matrix
-        return: lie algebra [3, ]
+        return: lie algebra [3, 1]
 
     Explanation:
     a = acos((trace(R)-1)/2)
     r = (a/2sin(a)) * [R(3, 2)-R(2, 3), R(1, 3)-R(3, 1), R(2, 1)-R(1, 2)]
     """
-
-    a = np.arccos((np.trace(R)-1)/2)
-
-    if a < 1e-5:
-        r = 0.5 * np.array([R[2][1]-R[1][2], R[0][2]-R[2][0], R[1][0]-R[0][1]])
-    elif a > (np.pi - 1e-5):
-        S = 0.5*(R-np.eye(3))
-        b = np.sqrt(S[0][0]+1)
-        c = np.sqrt(S[1][1]+1)
-        d = np.sqrt(S[2][2]+1)
-        if b > 1e-5:
-            c = S[1][0] / b
-            d = S[2][0] / b
-        elif c > 1e-5:
-            b = S[0][1] / c
-            d = S[2][1] / c
-        else:
-            b = S[0][2] / d
-            c = S[1][2] / d
-        r = np.array([b, c, d])
-    else:
-        r = (a/2/np.sin(a)) * np.array([R[2][1]-R[1][2], R[0][2]-R[2][0], R[1][0]-R[0][1]])
+    r = cv2.Rodrigues(R)[0]
+    # a = np.arccos((np.trace(R)-1)/2)
+    #
+    # if a < 1e-5:
+    #     r = 0.5 * np.array([R[2][1]-R[1][2], R[0][2]-R[2][0], R[1][0]-R[0][1]])
+    # elif a > (np.pi - 1e-5):
+    #     S = 0.5*(R-np.eye(3))
+    #     b = np.sqrt(S[0][0]+1)
+    #     c = np.sqrt(S[1][1]+1)
+    #     d = np.sqrt(S[2][2]+1)
+    #     if b > 1e-5:
+    #         c = S[1][0] / b
+    #         d = S[2][0] / b
+    #     elif c > 1e-5:
+    #         b = S[0][1] / c
+    #         d = S[2][1] / c
+    #     else:
+    #         b = S[0][2] / d
+    #         c = S[1][2] / d
+    #     r = np.array([b, c, d])
+    # else:
+    #     r = (a/2/np.sin(a)) * np.array([R[2][1]-R[1][2], R[0][2]-R[2][0], R[1][0]-R[0][1]])
+    # assert np.allclose(r_cv2, r)
     return r
 
+def getRotMatFromAxisAngle(r):
 
+    R2 = cv2.Rodrigues(r)[0]
+
+    I = np.eye(3)
+    a = np.linalg.norm(r)
+    a2 = a * a
+    W = getCrossProductMatrix(r)
+    W2 = W @ W
+    if a < 1e-5:
+        R = I + W + 0.5 * W2
+    else:
+        R = I + W * np.sin(a) / a + W2 * (1 - np.cos(a)) / a2
+    assert np.allclose(R, R2)
+    return R2
+
+def getCrossProductMatrix(r):
+    """
+    :param r: [3, 1] vector
+    :return: cross product matrix
+    """
+    hat = np.array([[0., -r[2, 0], r[1, 0]],
+                     [r[2, 0], 0., -r[0, 0]],
+                     [-r[1, 0], r[0, 0], 0.]])
+
+    return hat
 
 
 def scaleMatrix(scale):
